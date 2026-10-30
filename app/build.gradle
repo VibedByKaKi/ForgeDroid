@@ -6,22 +6,6 @@ repositories {
 
 apply plugin: 'com.android.application'
 
-def clientProps = new Properties()
-def clientPropFile = new File('client.properties')
-if (clientPropFile.canRead()) {
-    clientProps.load(new FileInputStream(clientPropFile))
-}
-
-ext {
-    if (clientProps.containsKey('ClientId')
-            && clientProps.containsKey('ClientSecret')) {
-        ClientId = clientProps['ClientId']
-        ClientSecret = clientProps['ClientSecret']
-    } else {
-        println 'client.properties not found or incomplete'
-    }
-}
-
 android {
     compileSdk 36
     defaultConfig {
@@ -31,9 +15,6 @@ android {
         versionName "4.6.15"
         applicationId "com.gh4a"
         resourceConfigurations += ['en']
-
-        buildConfigField 'String', 'CLIENT_ID', ClientId
-        buildConfigField 'String', 'CLIENT_SECRET', ClientSecret
     }
 
     signingConfigs {

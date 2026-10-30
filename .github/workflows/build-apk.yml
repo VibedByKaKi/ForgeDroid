@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+      - name: Prepare APK for upload
+        id: prepare
+        run: |
+          BUILD_NUMBER="${{ github.run_number }}"
+          SRC="$(ls app/build/outputs/apk/debug/*.apk | head -n 1)"
+          DEST="ForgeDroid-debug-${BUILD_NUMBER}.apk"
+          cp "$SRC" "$DEST"
+          echo "apk_filename=${DEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.prepare.outputs.apk_filename }}
+          path: ${{ steps.prepare.outputs.apk_filename }}
+          archive: false
+          retention-days: 14

@@ -20,7 +20,9 @@ import android.app.Application;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.LongSparseArray;
 
 import com.gh4a.fragment.SettingsFragment;
@@ -57,6 +59,7 @@ public class Gh4Application extends Application implements
     private static final String KEY_ALL_LOGINS = "logins";
     private static final String KEY_PREFIX_TOKEN = "token_";
     private static final String KEY_PREFIX_USER_ID = "user_id_";
+    private static final String KEY_PREFIX_INSTANCE = "instance_";
 
     /*
      * (non-Javadoc)
@@ -162,16 +165,57 @@ public class Gh4Application extends Application implements
         return mPt;
     }
 
-    public void setActiveLogin(String login) {
-        if (getPrefs().getStringSet(KEY_ALL_LOGINS, null).contains(login)) {
+    /**
+     * Build a prefs account key that stays unique across Forgejo hosts.
+     * {@link User#login()} remains the API username; this key is for storage only.
+     */
+    public static String makeAccountKey(String login, String instanceBaseUrl) {
+        String host = Uri.parse(normalizeInstanceUrl(instanceBaseUrl)).getHost();
+        if (TextUtils.isEmpty(host)) {
+            return login;
+        }
+        return login + "@" + host;
+    }
+
+    public static String normalizeInstanceUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        String trimmed = url.trim();
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
+    }
+
+    /** API username portion of an account key ({@code user} from {@code user@host}). */
+    public static String extractLoginName(String accountKey) {
+        if (accountKey == null) {
+            return null;
+        }
+        int at = accountKey.lastIndexOf('@');
+        if (at <= 0) {
+            return accountKey;
+        }
+        return accountKey.substring(0, at);
+    }
+
+    public void setActiveLogin(String accountKey) {
+        if (getPrefs().getStringSet(KEY_ALL_LOGINS, null).contains(accountKey)) {
             getPrefs().edit()
-                    .putString(KEY_ACTIVE_LOGIN, login)
+                    .putString(KEY_ACTIVE_LOGIN, accountKey)
                     .apply();
         }
     }
 
-    public String getAuthLogin() {
+    /** Prefs account key for the active account ({@code username@host}). */
+    public String getAuthAccountKey() {
         return getPrefs().getString(KEY_ACTIVE_LOGIN, null);
+    }
+
+    /** API username of the active account (not the prefs key). */
+    public String getAuthLogin() {
+        return extractLoginName(getAuthAccountKey());
     }
 
     public LongSparseArray<String> getAccounts() {
@@ -186,30 +230,45 @@ public class Gh4Application extends Application implements
     }
 
     public String getAuthToken() {
-        String login = getAuthLogin();
-        return login != null ? getPrefs().getString(KEY_PREFIX_TOKEN + login, null) : null;
+        String accountKey = getAuthAccountKey();
+        return accountKey != null ? getPrefs().getString(KEY_PREFIX_TOKEN + accountKey, null) : null;
     }
 
-    public void addAccount(User user, String token) {
+    public String getAuthInstanceUrl() {
+        return getInstanceUrl(getAuthAccountKey());
+    }
+
+    public String getInstanceUrl(String accountKey) {
+        if (accountKey == null) {
+            return null;
+        }
+        String url = getPrefs().getString(KEY_PREFIX_INSTANCE + accountKey, null);
+        return url != null ? normalizeInstanceUrl(url) : null;
+    }
+
+    public void addAccount(User user, String token, String instanceBaseUrl) {
         SharedPreferences prefs = getPrefs();
-        String login = user.login();
+        String instance = normalizeInstanceUrl(instanceBaseUrl);
+        String accountKey = makeAccountKey(user.login(), instance);
         final Set<String> logins = StringUtils.getEditableStringSetFromPrefs(prefs, KEY_ALL_LOGINS);
-        logins.add(login);
+        logins.add(accountKey);
 
         prefs.edit()
-                .putString(KEY_ACTIVE_LOGIN, login)
+                .putString(KEY_ACTIVE_LOGIN, accountKey)
                 .putStringSet(KEY_ALL_LOGINS, logins)
-                .putString(KEY_PREFIX_TOKEN + login, token)
-                .putLong(KEY_PREFIX_USER_ID + login, user.id())
+                .putString(KEY_PREFIX_TOKEN + accountKey, token)
+                .putLong(KEY_PREFIX_USER_ID + accountKey, user.id())
+                .putString(KEY_PREFIX_INSTANCE + accountKey, instance)
                 .apply();
 
         updateNotificationWorker(prefs);
     }
 
     public User getCurrentAccountInfoForAvatar() {
-        String login = getAuthLogin();
+        String accountKey = getAuthAccountKey();
+        String login = extractLoginName(accountKey);
         if (login != null) {
-            long userId = getPrefs().getLong(KEY_PREFIX_USER_ID + login, -1);
+            long userId = getPrefs().getLong(KEY_PREFIX_USER_ID + accountKey, -1);
             if (userId >= 0) {
                 return User.builder().login(login).id(userId).build();
             }
@@ -218,25 +277,30 @@ public class Gh4Application extends Application implements
     }
 
     public void setCurrentAccountInfo(User user) {
+        String accountKey = getAuthAccountKey();
+        if (accountKey == null) {
+            return;
+        }
         getPrefs().edit()
-                .putLong(KEY_PREFIX_USER_ID + user.login(), user.id())
+                .putLong(KEY_PREFIX_USER_ID + accountKey, user.id())
                 .apply();
     }
 
     public void logout() {
-        String login = getAuthLogin();
-        if (login == null) {
+        String accountKey = getAuthAccountKey();
+        if (accountKey == null) {
             return;
         }
 
         Set<String> logins = StringUtils.getEditableStringSetFromPrefs(getPrefs(), KEY_ALL_LOGINS);
-        logins.remove(login);
+        logins.remove(accountKey);
 
         getPrefs().edit()
                 .putString(KEY_ACTIVE_LOGIN, logins.size() > 0 ? logins.iterator().next() : null)
                 .putStringSet(KEY_ALL_LOGINS, logins)
-                .remove(KEY_PREFIX_TOKEN + login)
-                .remove(KEY_PREFIX_USER_ID + login)
+                .remove(KEY_PREFIX_TOKEN + accountKey)
+                .remove(KEY_PREFIX_USER_ID + accountKey)
+                .remove(KEY_PREFIX_INSTANCE + accountKey)
                 .apply();
 
         NotificationsWorker.cancel(this);
@@ -251,7 +315,7 @@ public class Gh4Application extends Application implements
     }
 
     public boolean isAuthorized() {
-        return getAuthLogin() != null && getAuthToken() != null;
+        return getAuthAccountKey() != null && getAuthToken() != null;
     }
 
     @Override

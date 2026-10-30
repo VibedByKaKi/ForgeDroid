@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OctoDroid</string>
+    <string name="app_name">ForgeDroid</string>
 
     <!-- Common -->
-    <string name="introduction">To be able to use the app to its full potential, please log in to GitHub using the button below.\n\nAlternatively, you can explore some parts of GitHub using the swipe-out menu on the left.</string>
+    <string name="introduction">To be able to use the app to its full potential, please log in to a Forgejo instance using the button below.\n\nAlternatively, you can explore some parts of Forgejo using the swipe-out menu on the left.</string>
     <string name="repo_not_found_toast">Repository was not found</string>
     <string name="loading_msg">Loading\u2026</string>
     <string name="saving_msg">Saving\u2026</string>
@@ -17,12 +17,11 @@
     <string name="search_code">Search code</string>
     <string name="logout">Logout</string>
     <string name="login">Login</string>
-    <string name="login_oauth">Login via OAuth</string>
-    <string name="login_token">Login using access token</string>
-    <string name="login_summary_oauth">Log in to Github using the OAuth web login flow.\nAs the login process is done in your browser and only one account can be active at a time there, you need to make sure to be logged out from Github in your browser before being able to log in to a new account.\n\nPlease visit <a href="https://github.com/logout">Github\'s logout page</a>, finish the logout process, then close the browser window, come back to the app and continue the login process.\nIf you\'re sure you\'re not logged in, you can also continue to the login process right away.</string>
+    <string name="login_instance_label">Forgejo instance</string>
+    <string name="login_custom_url_hint">Instance base URL (https://…)</string>
+    <string name="login_token_name_hint">API token name</string>
+    <string name="login_token_name_default">ForgeDroid</string>
     <string name="credentials_error_empty">This field must not be empty.</string>
-    <string name="credentials_error_invalid_token">The entered text does not look like a valid access token.</string>
-    <string name="credentials_token">Access token</string>
     <string name="try_again">Try again</string>
     <string name="report_issue">Report issue</string>
     <string name="ok">OK</string>
@@ -64,10 +63,10 @@
     <string name="draft">Draft</string>
     <string name="theme">Theme</string>
     <string name="pub_timeline">Public Timeline</string>
-    <string name="load_failure_explanation">Loading the data from GitHub failed. Please verify you have a working network connection and try again.</string>
+    <string name="load_failure_explanation">Loading the data from Forgejo failed. Please verify you have a working network connection and try again.</string>
     <string name="load_failure_explanation_dmca">This repository was taken down for legal reasons.\nPlease see %1$s for details.</string>
-    <string name="load_failure_explanation_parsing">There was an error while parsing GitHub\'s response. You can use the button below to report this issue to the app developers.</string>
-    <string name="load_failure_explanation_with_reason">Loading the data from GitHub failed. GitHub told us the following reason:\n%1$s</string>
+    <string name="load_failure_explanation_parsing">There was an error while parsing the server\'s response. You can use the button below to report this issue to the app developers.</string>
+    <string name="load_failure_explanation_with_reason">Loading the data from Forgejo failed. The server told us the following reason:\n%1$s</string>
     <string name="snackbar_network_error">%1$s. Please check your internet connection.</string>
     <string name="snackbar_application_error">%1$s. You can copy the error log to provide more details when reporting the issue to the app developers.</string>
     <string name="snackbar_github_api_error">%1$s: %2$s</string>

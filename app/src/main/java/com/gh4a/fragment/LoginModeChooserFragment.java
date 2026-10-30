@@ -1,63 +1,96 @@
 package com.gh4a.fragment;
 
+import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
-import android.text.Spannable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.text.style.URLSpan;
-import android.util.Pair;
+import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
-import android.widget.RadioGroup;
-import android.widget.TextView;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.webkit.CookieManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.ProgressBar;
+import android.widget.Spinner;
 
+import com.gh4a.Gh4Application;
 import com.gh4a.R;
 import com.gh4a.ServiceFactory;
 import com.gh4a.utils.ApiHelpers;
-import com.gh4a.utils.IntentUtils;
 import com.gh4a.utils.RxUtils;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.meisolsson.githubsdk.model.User;
 import com.meisolsson.githubsdk.service.users.UserService;
 
-import java.util.regex.Pattern;
+import java.io.IOException;
+import java.util.Locale;
 
-import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 import io.reactivex.Single;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.schedulers.Schedulers;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class LoginModeChooserFragment extends DialogFragment implements
-        RadioGroup.OnCheckedChangeListener, View.OnClickListener {
+        AdapterView.OnItemSelectedListener {
     public interface ParentCallback {
-        void onLoginStartOauth();
-        void onLoginFinished(String token, User user);
+        void onLoginFinished(String token, User user, String instanceBaseUrl);
         void onLoginFailed(Throwable error);
         void onLoginCanceled();
     }
+
+    private static final String[] PRESET_HOSTS = {
+            "codeberg.org",
+            "gitdab.com",
+            "git.kaki87.net",
+            "bolha.dev",
+            "git.gay",
+            "opencommit.eu",
+            "sij.ai",
+    };
+
+    private static final String CUSTOM_LABEL = "Custom";
+    private static final String TAG = "ForgeDroidLogin";
 
     public static LoginModeChooserFragment newInstance() {
         return new LoginModeChooserFragment();
     }
 
-    public static final String SCOPES = "user,repo,gist,read:org,notifications";
-
-    private RadioGroup mModeGroup;
-    private View mOauthContainer;
-    private View mTokenContainer;
-    private View mProgressContainer;
-    private WrappedEditor mToken;
-    private Button mOkButton;
-
     private ParentCallback mCallback;
+    private Spinner mInstanceSpinner;
+    private TextInputLayout mCustomUrlWrapper;
+    private TextInputEditText mCustomUrl;
+    private TextInputEditText mTokenName;
+    private WebView mWebView;
+    private ProgressBar mProgress;
+
+    private boolean mLoginInProgress;
+    private boolean mCheckingSession;
+    private String mCurrentInstanceUrl;
+    private String mLastLoadedUrl;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final CompositeDisposable mDisposables = new CompositeDisposable();
 
     @Override
     public void onAttach(Context context) {
@@ -70,56 +103,108 @@ public class LoginModeChooserFragment extends DialogFragment implements
 
     @NonNull
     @Override
+    @SuppressLint("SetJavaScriptEnabled")
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         LayoutInflater inflater = LayoutInflater.from(getActivity());
         View view = inflater.inflate(R.layout.login_dialog, null);
 
-        mModeGroup = view.findViewById(R.id.login_mode);
-        mModeGroup.setOnCheckedChangeListener(this);
+        mInstanceSpinner = view.findViewById(R.id.instance_spinner);
+        mCustomUrlWrapper = view.findViewById(R.id.custom_url_wrapper);
+        mCustomUrl = view.findViewById(R.id.custom_url);
+        mTokenName = view.findViewById(R.id.token_name);
+        mWebView = view.findViewById(R.id.login_webview);
+        mProgress = view.findViewById(R.id.login_progress);
 
-        mOauthContainer = view.findViewById(R.id.oauth_container);
-        mTokenContainer = view.findViewById(R.id.token_container);
-        mProgressContainer = view.findViewById(R.id.progress_container);
+        String[] labels = new String[PRESET_HOSTS.length + 1];
+        System.arraycopy(PRESET_HOSTS, 0, labels, 0, PRESET_HOSTS.length);
+        labels[PRESET_HOSTS.length] = CUSTOM_LABEL;
+        mInstanceSpinner.setAdapter(new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_dropdown_item, labels));
+        mInstanceSpinner.setOnItemSelectedListener(this);
 
-        mToken = new WrappedEditor(view, R.id.token, R.id.token_wrapper) {
-            private Pattern TOKEN_PATTERN = Pattern.compile("[A-Za-z0-9_]{8,255}");
+        mCustomUrl.addTextChangedListener(new SimpleWatcher() {
             @Override
-            protected int getTextErrorResId(Editable s) {
-                int resId = super.getTextErrorResId(s);
-                if (resId == 0 && !TOKEN_PATTERN.matcher(s).matches()) {
-                    resId = R.string.credentials_error_invalid_token;
+            public void afterTextChanged(Editable s) {
+                if (isCustomSelected()) {
+                    scheduleReloadWebView();
                 }
-                return resId;
             }
-        };
+        });
 
-        mModeGroup.check(R.id.oauth_button);
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
 
-        TextView oauthHint = view.findViewById(R.id.oauth_hint);
-        replaceURLSpansIfNeeded(oauthHint.getText());
+        WebSettings settings = mWebView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            cookieManager.setAcceptThirdPartyCookies(mWebView, true);
+        }
 
-        return new AlertDialog.Builder(getActivity())
+        mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                mLastLoadedUrl = url;
+                CookieManager.getInstance().flush();
+                maybeHandleSession();
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return false;
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return false;
+            }
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(getActivity())
+                .setTitle(R.string.add_account)
                 .setView(view)
-                .setPositiveButton(R.string.login, null) // will be assigned later
-                .setNegativeButton(R.string.cancel, (dialog, which) -> dialog.cancel())
+                .setNegativeButton(R.string.cancel, (d, which) -> d.cancel())
                 .create();
+
+        dialog.setOnShowListener(d -> {
+            Window window = dialog.getWindow();
+            if (window != null && getActivity() != null) {
+                DisplayMetrics metrics = new DisplayMetrics();
+                getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
+                window.setLayout(
+                        (int) (metrics.widthPixels * 0.96f),
+                        (int) (metrics.heightPixels * 0.92f));
+            }
+            if (mCurrentInstanceUrl == null) {
+                reloadWebViewIfReady();
+            }
+        });
+
+        return dialog;
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-
-        final AlertDialog d = (AlertDialog) getDialog();
-        mOkButton = d != null ? d.getButton(DialogInterface.BUTTON_POSITIVE) : null;
-        if (mOkButton != null) {
-            mOkButton.setOnClickListener(this);
-            updateOkButtonState();
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog != null && dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT);
         }
     }
 
     @Override
-    public void onCheckedChanged(RadioGroup group, @IdRes int checkedButtonId) {
-        updateContainerVisibility(false);
+    public void onDestroyView() {
+        mHandler.removeCallbacksAndMessages(null);
+        mDisposables.clear();
+        if (mWebView != null) {
+            mWebView.stopLoading();
+            mWebView.destroy();
+            mWebView = null;
+        }
+        super.onDestroyView();
     }
 
     @Override
@@ -129,124 +214,424 @@ public class LoginModeChooserFragment extends DialogFragment implements
     }
 
     @Override
-    public void onClick(View v) {
-        updateContainerVisibility(true);
-        switch (mModeGroup.getCheckedRadioButtonId()) {
-            case R.id.oauth_button:
-                mCallback.onLoginStartOauth();
-                dismissAllowingStateLoss();
-                break;
-            case R.id.token_button:
-                handleTokenCheck(makeTokenCheckSingle(mToken.getText()));
-                break;
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        boolean custom = isCustomSelected();
+        mCustomUrlWrapper.setVisibility(custom ? View.VISIBLE : View.GONE);
+        reloadWebViewIfReady();
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
+    }
+
+    private boolean isCustomSelected() {
+        Object selected = mInstanceSpinner.getSelectedItem();
+        return CUSTOM_LABEL.equals(selected);
+    }
+
+    private String resolveInstanceBaseUrl() {
+        if (isCustomSelected()) {
+            Editable editable = mCustomUrl.getText();
+            String raw = editable != null ? editable.toString().trim() : "";
+            if (TextUtils.isEmpty(raw)) {
+                return null;
+            }
+            if (!raw.contains("://")) {
+                raw = "https://" + raw;
+            }
+            return Gh4Application.normalizeInstanceUrl(raw);
         }
+        String host = (String) mInstanceSpinner.getSelectedItem();
+        return "https://" + host;
     }
 
-    private void handleTokenCheck(Single<Pair<String, User>> checkSingle) {
-        checkSingle.subscribe(pair -> {
-            mCallback.onLoginFinished(pair.first, pair.second);
-            dismissAllowingStateLoss();
-        }, error -> {
-            mCallback.onLoginFailed(error);
-            dismissAllowingStateLoss();
-        });
-    }
-
-    private void updateContainerVisibility(boolean busy) {
-        @IdRes int checked = mModeGroup.getCheckedRadioButtonId();
-        mOauthContainer.setVisibility(
-                checked == R.id.oauth_button && !busy ? View.VISIBLE : View.GONE);
-        mTokenContainer.setVisibility(
-                checked == R.id.token_button && !busy ? View.VISIBLE : View.GONE);
-        mProgressContainer.setVisibility(busy ? View.VISIBLE : View.GONE);
-        updateOkButtonState();
-    }
-
-    private void updateOkButtonState() {
-        final boolean enable;
-        if (mProgressContainer.getVisibility() == View.VISIBLE) {
-            enable = false;
-        } else if (mModeGroup.getCheckedRadioButtonId() == R.id.token_button) {
-            enable = !mToken.hasError();
-        } else {
-            enable = true;
+    private String getTokenName() {
+        Editable editable = mTokenName.getText();
+        String name = editable != null ? editable.toString().trim() : "";
+        if (TextUtils.isEmpty(name)) {
+            name = getString(R.string.login_token_name_default);
         }
-        if (mOkButton != null) {
-            mOkButton.setEnabled(enable);
-        }
+        return name;
     }
 
-    private Single<Pair<String, User>> makeTokenCheckSingle(String token) {
-        UserService userService = ServiceFactory.get(UserService.class, true, null, token, null);
-        Single<User> userSingle = userService.getUser()
-                .map(ApiHelpers::throwOnFailure)
-                .compose(RxUtils::doInBackground);
-        return Single.zip(Single.just(token), userSingle, Pair::create);
+    private void scheduleReloadWebView() {
+        mHandler.removeCallbacks(mReloadRunnable);
+        mHandler.postDelayed(mReloadRunnable, 600);
     }
 
-    private void replaceURLSpansIfNeeded(CharSequence text) {
-        if (!(text instanceof Spannable)) {
+    private final Runnable mReloadRunnable = this::reloadWebViewIfReady;
+
+    private void reloadWebViewIfReady() {
+        if (mWebView == null || mLoginInProgress) {
             return;
         }
-        Spannable spannable = (Spannable) text;
-        for (Object span : spannable.getSpans(0, spannable.length(), URLSpan.class)) {
-            URLSpan urlSpan = (URLSpan) span;
-            int start = spannable.getSpanStart(span);
-            int end = spannable.getSpanEnd(span);
-            int flags = spannable.getSpanFlags(span);
-            spannable.removeSpan(span);
-            spannable.setSpan(new URLSpan(urlSpan.getURL()) {
-                @Override
-                public void onClick(View widget) {
-                    IntentUtils.openInCustomTabOrBrowser(getActivity(), Uri.parse(getURL()));
+        String instance = resolveInstanceBaseUrl();
+        if (instance == null) {
+            return;
+        }
+        if (instance.equals(mCurrentInstanceUrl)) {
+            return;
+        }
+        Uri uri = Uri.parse(instance);
+        if (TextUtils.isEmpty(uri.getHost())) {
+            mCustomUrlWrapper.setError(getString(R.string.credentials_error_empty));
+            return;
+        }
+        mCustomUrlWrapper.setErrorEnabled(false);
+        mCurrentInstanceUrl = instance;
+        mLastLoadedUrl = null;
+        mLoginInProgress = false;
+        mCheckingSession = false;
+        mWebView.loadUrl(instance + "/user/login");
+    }
+
+    private void maybeHandleSession() {
+        if (mLoginInProgress || mCheckingSession || mWebView == null) {
+            return;
+        }
+        String instance = mCurrentInstanceUrl;
+        if (instance == null) {
+            return;
+        }
+        // Anonymous visits also get a session cookie; wait until the user leaves the login page.
+        if (isAuthPage(mLastLoadedUrl)) {
+            return;
+        }
+        String cookies = CookieManager.getInstance().getCookie(instance);
+        if (!hasSessionCookie(cookies)) {
+            return;
+        }
+        mCheckingSession = true;
+        mLoginInProgress = true;
+        setBusy(true);
+        final String tokenName = getTokenName();
+        Log.i(TAG, "Session detected on " + mLastLoadedUrl + "; creating token via web form");
+        mDisposables.add(
+                Single.fromCallable(() -> createTokenViaWebForm(instance, cookies, tokenName))
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(token -> {
+                            Log.i(TAG, "Token created, fetching user");
+                            finishWithToken(instance, token);
+                        }, error -> {
+                            Log.e(TAG, "Token creation failed", error);
+                            mCheckingSession = false;
+                            // Still on a soft pre-login redirect, or transient failure — retry later
+                            if (isLikelyPreLogin(error)) {
+                                mLoginInProgress = false;
+                                setBusy(false);
+                            } else {
+                                failLogin(error);
+                            }
+                        })
+        );
+    }
+
+    private static boolean isAuthPage(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return true;
+        }
+        String path = Uri.parse(url).getPath();
+        if (path == null) {
+            return true;
+        }
+        return path.contains("/user/login")
+                || path.contains("/user/sign_up")
+                || path.contains("/user/forgot_password")
+                || path.contains("/login/oauth");
+    }
+
+    private static boolean isLikelyPreLogin(Throwable error) {
+        String msg = error.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        String lower = msg.toLowerCase(Locale.US);
+        return lower.contains("not logged in")
+                || lower.contains("login required")
+                || lower.contains("401")
+                || lower.contains("403");
+    }
+
+    private static boolean hasSessionCookie(String cookies) {
+        if (TextUtils.isEmpty(cookies)) {
+            return false;
+        }
+        for (String part : cookies.split(";")) {
+            String name = part.trim();
+            int eq = name.indexOf('=');
+            if (eq > 0) {
+                name = name.substring(0, eq);
+            }
+            name = name.toLowerCase(Locale.US);
+            if ("i_like_gitea".equals(name)
+                    || "session".equals(name)
+                    || "remember".equals(name)
+                    || "gitea_awesome".equals(name)
+                    || name.contains("remember")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String getCookieValue(String cookies, String cookieName) {
+        if (TextUtils.isEmpty(cookies)) {
+            return null;
+        }
+        for (String part : cookies.split(";")) {
+            String trimmed = part.trim();
+            int eq = trimmed.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            if (trimmed.substring(0, eq).equalsIgnoreCase(cookieName)) {
+                return trimmed.substring(eq + 1);
+            }
+        }
+        return null;
+    }
+
+    private void setBusy(boolean busy) {
+        if (mProgress != null) {
+            mProgress.setVisibility(busy ? View.VISIBLE : View.GONE);
+        }
+        if (mWebView != null) {
+            mWebView.setVisibility(busy ? View.INVISIBLE : View.VISIBLE);
+        }
+        mInstanceSpinner.setEnabled(!busy);
+        mCustomUrl.setEnabled(!busy);
+        mTokenName.setEnabled(!busy);
+    }
+
+    /**
+     * Forgejo/Gitea reject session cookies on the REST API, so mint the token through the
+     * logged-in web UI form at /user/settings/applications, then use that token for the API.
+     */
+    private String createTokenViaWebForm(String instance, String cookies, String tokenName)
+            throws Exception {
+        OkHttpClient client = ServiceFactory.getHttpClientBuilder()
+                .followRedirects(false)
+                .build();
+
+        Request appsGet = new Request.Builder()
+                .url(instance + "/user/settings/applications")
+                .header("Cookie", cookies)
+                .header("Accept", "text/html")
+                .build();
+
+        String csrf;
+        String updatedCookies = cookies;
+        try (Response response = client.newCall(appsGet).execute()) {
+            if (response.code() == 401 || response.code() == 403) {
+                throw new IOException("Not logged in (HTTP " + response.code() + ")");
+            }
+            if (response.isRedirect()) {
+                String location = response.header("Location");
+                if (location != null && location.contains("/user/login")) {
+                    throw new IOException("Not logged in (redirected to login)");
                 }
-            }, start, end, flags);
+            }
+            String body = response.body() != null ? response.body().string() : "";
+            if (body.contains("/user/login") && body.contains("user_name")) {
+                throw new IOException("Not logged in (login page returned)");
+            }
+            updatedCookies = mergeSetCookies(updatedCookies, response);
+            csrf = extractCsrf(body, updatedCookies);
+            if (TextUtils.isEmpty(csrf)) {
+                throw new IOException("Could not find CSRF token on applications page");
+            }
+        }
+
+        // Unique name avoids "already used" collisions across re-logins.
+        String uniqueName = tokenName + "-" + Long.toHexString(System.currentTimeMillis());
+        // Forgejo expects repeated "scope" fields (not "scope-user=...").
+        // Omit admin so non-admin accounts can mint tokens.
+        RequestBody formBody = new okhttp3.FormBody.Builder()
+                .add("_csrf", csrf)
+                .add("name", uniqueName)
+                .add("scope", "") // all orgs/repos (public + private + limited)
+                .add("scope", "write:activitypub")
+                .add("scope", "write:issue")
+                .add("scope", "write:misc")
+                .add("scope", "write:notification")
+                .add("scope", "write:organization")
+                .add("scope", "write:package")
+                .add("scope", "write:repository")
+                .add("scope", "write:user")
+                .build();
+
+        Request create = new Request.Builder()
+                .url(instance + "/user/settings/applications")
+                .header("Cookie", updatedCookies)
+                .header("X-Csrf-Token", csrf)
+                .post(formBody)
+                .build();
+
+        try (Response response = client.newCall(create).execute()) {
+            String token = parseTokenFromFlashCookie(response);
+            if (!TextUtils.isEmpty(token)) {
+                return token;
+            }
+            // Follow redirect manually and parse flash-info from HTML
+            String location = response.header("Location");
+            if (location != null) {
+                String nextCookies = mergeSetCookies(updatedCookies, response);
+                String absolute = location.startsWith("http") ? location : instance + location;
+                Request follow = new Request.Builder()
+                        .url(absolute)
+                        .header("Cookie", nextCookies)
+                        .header("Accept", "text/html")
+                        .build();
+                try (Response followed = client.newCall(follow).execute()) {
+                    String html = followed.body() != null ? followed.body().string() : "";
+                    token = parseTokenFromHtml(html);
+                    if (!TextUtils.isEmpty(token)) {
+                        return token;
+                    }
+                }
+            }
+            String body = response.body() != null ? response.body().string() : "";
+            token = parseTokenFromHtml(body);
+            if (!TextUtils.isEmpty(token)) {
+                return token;
+            }
+            throw new IOException("Token create failed: HTTP " + response.code()
+                    + " (no token in response)");
         }
     }
-    private class WrappedEditor implements TextWatcher {
-        private final TextInputEditText mEditor;
-        private final TextInputLayout mWrapper;
 
-        public WrappedEditor(View parent, @IdRes int editorResId, @IdRes int wrapperResId) {
-            mEditor = parent.findViewById(editorResId);
-            mWrapper = parent.findViewById(wrapperResId);
-            mEditor.addTextChangedListener(this);
-            afterTextChanged(mEditor.getText());
+    private static String mergeSetCookies(String existing, Response response) {
+        java.util.List<String> setCookies = response.headers("Set-Cookie");
+        if (setCookies == null || setCookies.isEmpty()) {
+            return existing;
         }
-
-        public String getText() {
-            Editable editable = mEditor.getText();
-            return editable != null ? editable.toString() : null;
+        java.util.LinkedHashMap<String, String> map = new java.util.LinkedHashMap<>();
+        if (!TextUtils.isEmpty(existing)) {
+            for (String part : existing.split(";")) {
+                String trimmed = part.trim();
+                int eq = trimmed.indexOf('=');
+                if (eq > 0) {
+                    map.put(trimmed.substring(0, eq), trimmed.substring(eq + 1));
+                }
+            }
         }
-
-        public boolean hasError() {
-            return mWrapper.isErrorEnabled();
+        for (String setCookie : setCookies) {
+            String first = setCookie.split(";", 2)[0].trim();
+            int eq = first.indexOf('=');
+            if (eq > 0) {
+                map.put(first.substring(0, eq), first.substring(eq + 1));
+            }
         }
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, String> e : map.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+            sb.append(e.getKey()).append('=').append(e.getValue());
+        }
+        return sb.toString();
+    }
 
+    private static String extractCsrf(String html, String cookies) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("name=\"_csrf\"\\s+value=\"([^\"]+)\"")
+                .matcher(html != null ? html : "");
+        if (m.find()) {
+            return m.group(1);
+        }
+        m = java.util.regex.Pattern.compile("csrfToken:\\s*'([^']+)'")
+                .matcher(html != null ? html : "");
+        if (m.find()) {
+            return m.group(1);
+        }
+        String fromCookie = getCookieValue(cookies, "_csrf");
+        return fromCookie != null ? Uri.decode(fromCookie) : null;
+    }
+
+    private static String parseTokenFromFlashCookie(Response response) {
+        for (String setCookie : response.headers("Set-Cookie")) {
+            String nameValue = setCookie.split(";", 2)[0];
+            int eq = nameValue.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String name = nameValue.substring(0, eq).trim().toLowerCase(Locale.US);
+            if (!name.contains("flash")) {
+                continue;
+            }
+            String decoded = Uri.decode(nameValue.substring(eq + 1));
+            // info=<token>&success=<message>
+            for (String part : decoded.split("&")) {
+                if (part.startsWith("info=")) {
+                    String token = Uri.decode(part.substring(5));
+                    if (token.matches("[a-fA-F0-9]{40,}")) {
+                        return token;
+                    }
+                }
+            }
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("\\b([a-fA-F0-9]{40})\\b")
+                    .matcher(decoded);
+            if (m.find()) {
+                return m.group(1);
+            }
+        }
+        return null;
+    }
+
+    private static String parseTokenFromHtml(String html) {
+        if (TextUtils.isEmpty(html)) {
+            return null;
+        }
+        java.util.regex.Matcher flash = java.util.regex.Pattern
+                .compile("flash-info[\\s\\S]{0,200}?<p>\\s*([a-fA-F0-9]{40,})\\s*</p>",
+                        java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(html);
+        if (flash.find()) {
+            return flash.group(1);
+        }
+        java.util.regex.Matcher hex = java.util.regex.Pattern
+                .compile("\\b([a-fA-F0-9]{40})\\b")
+                .matcher(html);
+        if (hex.find()) {
+            return hex.group(1);
+        }
+        return null;
+    }
+
+    private void finishWithToken(String instance, String token) {
+        mDisposables.add(
+                Single.fromCallable(() -> {
+                            UserService userService = ServiceFactory.get(UserService.class, true,
+                                    null, token, null, instance);
+                            return userService.getUser()
+                                    .map(ApiHelpers::throwOnFailure)
+                                    .blockingGet();
+                        })
+                        .compose(RxUtils::doInBackground)
+                        .subscribe(user -> {
+                            mCallback.onLoginFinished(token, user, instance);
+                            dismissAllowingStateLoss();
+                        }, this::failLogin)
+        );
+    }
+
+    private void failLogin(Throwable error) {
+        mLoginInProgress = false;
+        mCheckingSession = false;
+        setBusy(false);
+        mCallback.onLoginFailed(error);
+        dismissAllowingStateLoss();
+    }
+
+    private abstract static class SimpleWatcher implements TextWatcher {
         @Override
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {
         }
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-        }
-
-        @Override
-        public void afterTextChanged(Editable s) {
-            int errorResId = getTextErrorResId(s);
-            if (errorResId != 0) {
-                mWrapper.setError(getString(errorResId));
-            } else {
-                mWrapper.setErrorEnabled(false);
-            }
-            updateOkButtonState();
-        }
-
-        protected int getTextErrorResId(Editable s) {
-            if (TextUtils.isEmpty(s)) {
-                return R.string.credentials_error_empty;
-            }
-            return 0;
         }
     }
 }

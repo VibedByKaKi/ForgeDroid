@@ -30,7 +30,6 @@ import com.gh4a.BaseFragmentPagerActivity;
 import com.gh4a.Gh4Application;
 import com.gh4a.R;
 import com.gh4a.ServiceFactory;
-import com.gh4a.activities.Github4AndroidActivity;
 import com.gh4a.activities.UserActivity;
 import com.gh4a.fragment.LoginModeChooserFragment;
 import com.gh4a.fragment.NotificationListFragment;
@@ -273,7 +272,7 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
 
         int accountCount = Gh4Application.get().getAccounts().size();
         if (id >= OTHER_ACCOUNTS_GROUP_BASE_ID && id < OTHER_ACCOUNTS_GROUP_BASE_ID + accountCount) {
-            switchActiveUser(item.getTitle().toString());
+            switchActiveAccount(item.getTitle().toString());
             return true;
         }
 
@@ -288,9 +287,9 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
         }
     }
 
-    private void switchActiveUser(String login) {
-        Gh4Application.get().setActiveLogin(login);
-        mUserLogin = login;
+    private void switchActiveAccount(String accountKey) {
+        Gh4Application.get().setActiveLogin(accountKey);
+        mUserLogin = Gh4Application.get().getAuthLogin();
         onRefresh();
         closeDrawers();
         switchTo(mSelectedFactoryId, getFactoryForItem(mSelectedFactoryId));
@@ -351,14 +350,9 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
     }
 
     @Override
-    public void onLoginStartOauth() {
-        Github4AndroidActivity.launchOauthLogin(this);
-    }
-
-    @Override
-    public void onLoginFinished(String token, User user) {
-        Gh4Application.get().addAccount(user, token);
-        switchActiveUser(user.login());
+    public void onLoginFinished(String token, User user, String instanceBaseUrl) {
+        Gh4Application.get().addAccount(user, token, instanceBaseUrl);
+        switchActiveAccount(Gh4Application.makeAccountKey(user.login(), instanceBaseUrl));
     }
 
     @Override
@@ -520,14 +514,16 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
 
             int id = OTHER_ACCOUNTS_GROUP_BASE_ID;
             LongSparseArray<String> accounts = Gh4Application.get().getAccounts();
+            String activeKey = Gh4Application.get().getAuthAccountKey();
             for (int i = 0; i < accounts.size(); i++) {
-                String login = accounts.valueAt(i);
-                if (ApiHelpers.loginEquals(mUserLogin, login)) {
+                String accountKey = accounts.valueAt(i);
+                if (TextUtils.equals(activeKey, accountKey)) {
                     continue;
                 }
 
-                MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, login);
-                AvatarHandler.assignAvatar(this, item, login, accounts.keyAt(i));
+                MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, accountKey);
+                AvatarHandler.assignAvatar(this, item,
+                        Gh4Application.extractLoginName(accountKey), accounts.keyAt(i));
             }
         }
 

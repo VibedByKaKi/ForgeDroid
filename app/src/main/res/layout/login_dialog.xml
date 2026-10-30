@@ -1,85 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="@dimen/content_padding"
-    xmlns:tools="http://schemas.android.com/tools">
+    android:padding="@dimen/content_padding">
 
-    <RadioGroup
-        android:id="@+id/login_mode"
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="16dp">
+        android:paddingBottom="8dp"
+        android:text="@string/login_instance_label"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
 
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/oauth_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/login_oauth" />
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/token_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/login_token" />
-
-    </RadioGroup>
-
-    <FrameLayout
-        android:id="@+id/oauth_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <com.gh4a.widget.LinkHandlingTextView
-            android:id="@+id/oauth_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/login_summary_oauth"
-            app:needsLinkHandling="true" />
-
-    </FrameLayout>
-
-    <LinearLayout
-        android:id="@+id/token_container"
+    <Spinner
+        android:id="@+id/instance_spinner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:minHeight="48dp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/custom_url_wrapper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:hint="@string/login_custom_url_hint"
         tools:visibility="visible">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/token_wrapper"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/custom_url"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/credentials_token">
+            android:inputType="textUri"
+            android:imeOptions="actionDone"
+            android:singleLine="true" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/token"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textNoSuggestions"
-                android:imeOptions="actionNext"
-                android:singleLine="true" />
+    </com.google.android.material.textfield.TextInputLayout>
 
-        </com.google.android.material.textfield.TextInputLayout>
-
-    </LinearLayout>
-
-    <FrameLayout
-        android:id="@+id/progress_container"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/token_name_wrapper"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        tools:visibility="gone">
+        android:hint="@string/login_token_name_hint"
+        android:paddingTop="8dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/token_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:imeOptions="actionDone"
+            android:singleLine="true"
+            android:text="@string/login_token_name_default" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp"
+        android:minHeight="320dp">
+
+        <WebView
+            android:id="@+id/login_webview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
         <ProgressBar
             android:id="@+id/login_progress"
             style="?attr/indeterminateProgressStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:layout_gravity="center_horizontal"
-            android:indeterminate="true" />
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:visibility="gone"
+            tools:visibility="visible" />
 
     </FrameLayout>
 

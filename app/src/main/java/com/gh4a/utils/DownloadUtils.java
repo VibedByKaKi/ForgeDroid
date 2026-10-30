@@ -79,7 +79,7 @@ public class DownloadUtils {
         }
         final String token = Gh4Application.get().getAuthToken();
         if (addAuthHeader && token != null) {
-            request.addRequestHeader("Authorization", "Token " + token);
+            request.addRequestHeader("Authorization", "token " + token);
         }
         if (mimeType != null) {
             request.setMimeType(mimeType);
@@ -110,7 +110,7 @@ public class DownloadUtils {
                 .header("Accept", "application/octet-stream");
         final String token = Gh4Application.get().getAuthToken();
         if (token != null) {
-            requestBuilder.addHeader("Authorization", "Token " + token);
+            requestBuilder.addHeader("Authorization", "token " + token);
         }
 
         final Handler handler = new Handler(Looper.getMainLooper());
