@@ -63,6 +63,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/search/repositories$");
     private static final Pattern SEARCH_USERS =
             Pattern.compile("^/api/v1/search/users$");
+    // Exact user profile (not /users/{login}/repos etc.).
+    private static final Pattern SINGLE_USER =
+            Pattern.compile("^/api/v1/users/([^/]+)$");
+    private static final Pattern SEARCH_CODE =
+            Pattern.compile("^/api/v1/search/code$");
+    private static final Pattern WIKI_PAGES =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/wiki(/.*)?$");
     private static final Pattern GISTS =
             Pattern.compile("^/api/v1/(gists|users/[^/]+/gists)(/.*)?$");
     private static final Pattern SINGLE_COMMIT =
@@ -116,6 +123,24 @@ public class ForgejoCompatInterceptor implements Interceptor {
         if (CHECK_RUNS.matcher(originalPath).matches()) {
             // Forgejo has no GitHub Checks API; return an empty check-runs page.
             return jsonResponse(original, "{\"total_count\":0,\"check_runs\":[]}");
+        }
+        if (SEARCH_CODE.matcher(originalPath).matches()) {
+            // Forgejo has no GitHub-compatible code search API.
+            return jsonResponse(original,
+                    "{\"total_count\":0,\"incomplete_results\":false,\"items\":[]}");
+        }
+        if (WIKI_PAGES.matcher(originalPath).matches()) {
+            // Missing wikis 404; treat as empty so the wiki screen can show its empty state.
+            return emptyJsonArray(original);
+        }
+        Matcher singleUser = SINGLE_USER.matcher(originalPath);
+        if (singleUser.matches() && "GET".equalsIgnoreCase(original.method())) {
+            // Forgejo serves orgs from /users/{name} without type. Prefer /orgs/{name} so
+            // UserActivity shows Members instead of Followers.
+            Response orgUser = tryOrgAsGitHubUser(chain, original, singleUser.group(1));
+            if (orgUser != null) {
+                return orgUser;
+            }
         }
 
         Request request = rewriteRequest(original);
@@ -543,14 +568,23 @@ public class ForgejoCompatInterceptor implements Interceptor {
 
     /**
      * Map GitHub issue search query {@code is:issue is:open author:user} onto
-     * Forgejo {@code /repos/issues/search}.
+     * Forgejo. Repo-scoped queries use {@code /repos/{owner}/{repo}/issues};
+     * cross-repo ("My issues") keep {@code /repos/issues/search}.
+     * Putting {@code repo:owner/name} into Forgejo's {@code q} returns nothing —
+     * it is a text keyword, not a qualifier.
      */
     private static void rewriteIssueSearch(HttpUrl url, HttpUrl.Builder urlBuilder) {
-        urlBuilder.encodedPath("/api/v1/repos/issues/search");
         String q = url.queryParameter("q");
         urlBuilder.removeAllQueryParameters("q");
         urlBuilder.removeAllQueryParameters("sort");
         urlBuilder.removeAllQueryParameters("order");
+        urlBuilder.removeAllQueryParameters("created");
+        urlBuilder.removeAllQueryParameters("assigned");
+        urlBuilder.removeAllQueryParameters("mentioned");
+        urlBuilder.removeAllQueryParameters("type");
+        urlBuilder.removeAllQueryParameters("state");
+        urlBuilder.removeAllQueryParameters("assignee");
+        urlBuilder.removeAllQueryParameters("labels");
 
         String type = "issues";
         String state = "open";
@@ -561,6 +595,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
 
         String owner = null;
         String repo = null;
+        String assignee = null;
+        String label = null;
         if (q != null) {
             for (String token : q.trim().split("\\s+")) {
                 if (token.equals("is:issue") || token.equals("is:issues")
@@ -578,11 +614,20 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     created = true;
                 } else if (token.startsWith("assignee:")) {
                     assigned = true;
+                    assignee = token.substring("assignee:".length());
                 } else if (token.startsWith("mentions:")) {
                     mentioned = true;
-                } else if (token.startsWith("involves:")) {
-                    // Closest single-flag approximation on Forgejo.
+                } else if (token.startsWith("involves:") || token.startsWith("-involves:")) {
+                    // Closest single-flag approximation on Forgejo cross-repo search.
                     created = true;
+                } else if (token.startsWith("label:")) {
+                    label = token.substring("label:".length());
+                } else if (token.startsWith("milestone:")) {
+                    // Forgejo list-issues wants a milestone id; keep as text search fallback.
+                    if (leftover.length() > 0) {
+                        leftover.append(' ');
+                    }
+                    leftover.append(token.substring("milestone:".length()));
                 } else if (token.startsWith("repo:")) {
                     String full = token.substring("repo:".length());
                     int slash = full.indexOf('/');
@@ -599,21 +644,30 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
 
-        urlBuilder.setQueryParameter("type", type);
-        urlBuilder.setQueryParameter("state", state);
-        urlBuilder.setQueryParameter("created", String.valueOf(created));
-        urlBuilder.setQueryParameter("assigned", String.valueOf(assigned));
-        urlBuilder.setQueryParameter("mentioned", String.valueOf(mentioned));
-        // Forgejo's owner/repo query params do not scope results to that repository
-        // (they still return cross-repo hits). Keep GitHub's repo:owner/name in q.
         if (owner != null && repo != null) {
-            if (leftover.length() > 0) {
-                leftover.append(' ');
+            // Per-repo list: Forgejo search owner/repo params do not scope to one repo.
+            urlBuilder.encodedPath("/api/v1/repos/" + owner + "/" + repo + "/issues");
+            urlBuilder.setQueryParameter("type", type);
+            urlBuilder.setQueryParameter("state", state);
+            if (assignee != null && !assignee.isEmpty()) {
+                urlBuilder.setQueryParameter("assignee", assignee);
             }
-            leftover.append("repo:").append(owner).append('/').append(repo);
-        }
-        if (leftover.length() > 0) {
-            urlBuilder.setQueryParameter("q", leftover.toString());
+            if (label != null && !label.isEmpty()) {
+                urlBuilder.setQueryParameter("labels", label);
+            }
+            if (leftover.length() > 0) {
+                urlBuilder.setQueryParameter("q", leftover.toString());
+            }
+        } else {
+            urlBuilder.encodedPath("/api/v1/repos/issues/search");
+            urlBuilder.setQueryParameter("type", type);
+            urlBuilder.setQueryParameter("state", state);
+            urlBuilder.setQueryParameter("created", String.valueOf(created));
+            urlBuilder.setQueryParameter("assigned", String.valueOf(assigned));
+            urlBuilder.setQueryParameter("mentioned", String.valueOf(mentioned));
+            if (leftover.length() > 0) {
+                urlBuilder.setQueryParameter("q", leftover.toString());
+            }
         }
         if (url.queryParameter("limit") == null && url.queryParameter("per_page") == null) {
             urlBuilder.setQueryParameter("limit", "30");
@@ -732,6 +786,41 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .put("incomplete_results", false)
                 .put("items", new JSONArray().put(user))
                 .toString();
+    }
+
+    /**
+     * If {@code login} is an organization, return it shaped like a GitHub User with
+     * {@code type=Organization}. Otherwise null so the normal /users/{login} call proceeds.
+     */
+    private static Response tryOrgAsGitHubUser(Chain chain, Request original, String login)
+            throws IOException {
+        JSONObject org = fetchJsonObject(chain, original, "/api/v1/orgs", login);
+        if (org == null) {
+            return null;
+        }
+        try {
+            if ((!org.has("login") || org.isNull("login") || org.optString("login").isEmpty())) {
+                if (org.has("username") && !org.isNull("username")) {
+                    org.put("login", org.optString("username"));
+                } else if (org.has("name") && !org.isNull("name")) {
+                    org.put("login", org.optString("name"));
+                } else {
+                    org.put("login", login);
+                }
+            }
+            org.put("type", "Organization");
+            if (org.has("full_name") && !org.isNull("full_name")) {
+                // Prefer display name; keep org "name" as login when that is all Forgejo sent.
+                String fullName = org.optString("full_name", "");
+                if (!fullName.isEmpty()) {
+                    org.put("name", fullName);
+                }
+            }
+            return jsonResponse(original, aliasStarFields(org.toString()));
+        } catch (JSONException e) {
+            Log.w(TAG, "Failed to rewrite org " + login + " as GitHub user", e);
+            return null;
+        }
     }
 
     private static JSONObject fetchJsonObject(Chain chain, Request template,
@@ -1173,6 +1262,20 @@ public class ForgejoCompatInterceptor implements Interceptor {
      * Convert Forgejo timestamps like {@code 2026-10-31T01:10:50+01:00} to the
      * {@code yyyy-MM-dd'T'HH:mm:ss'Z'} form githubsdk's FormattedTimeAdapter accepts.
      */
+    private static boolean looksLikeGitSha(String value) {
+        int len = value.length();
+        if (len < 7 || len > 64) {
+            return false;
+        }
+        for (int i = 0; i < len; i++) {
+            char c = value.charAt(i);
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static String normalizeIso8601ToZulu(String value) {
         if (value == null || value.length() < 20 || value.endsWith("Z")) {
             return value;
@@ -1209,6 +1312,15 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 out.put(outKey, normalizeIso8601ToZulu((String) value));
             } else {
                 out.put(outKey, value);
+            }
+        }
+        // Forgejo commit objects (e.g. under /branches) use id; GitHub uses sha.
+        if ((!out.has("sha") || out.isNull("sha"))
+                && obj.has("id") && !obj.isNull("id")
+                && obj.opt("id") instanceof String) {
+            String id = obj.optString("id", "");
+            if (looksLikeGitSha(id)) {
+                out.put("sha", id);
             }
         }
         // Prefer canonical GitHub field names when both are present.

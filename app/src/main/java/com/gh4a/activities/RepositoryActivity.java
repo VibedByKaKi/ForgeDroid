@@ -431,10 +431,13 @@ public class RepositoryActivity extends BaseFragmentPagerActivity implements
 
             for (int i = 0; i < count; i++) {
                 Branch item = adapter.getItem(i);
-                if (item.name().equals(selectedRef) || item.commit().sha().equals(selectedRef)) {
+                String name = item.name();
+                String sha = item.commit() != null ? item.commit().sha() : null;
+                if ((name != null && name.equals(selectedRef))
+                        || (sha != null && sha.equals(selectedRef))) {
                     current = i;
                 }
-                if (item.name().equals(defaultBranch)) {
+                if (name != null && name.equals(defaultBranch)) {
                     master = i;
                 }
             }
