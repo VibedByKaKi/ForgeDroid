@@ -292,14 +292,20 @@ public abstract class EventListFragment extends PagedDataBaseFragment<GitHubEven
                 List<GitCommit> commits = payload.commits();
 
                 if (commits != null && !commits.isEmpty()) {
-                    if (commits.size() > 1) {
+                    // Forgejo activity feeds omit the previous SHA; compare with an empty
+                    // base yields an empty result, so fall back to the head commit.
+                    if (commits.size() > 1 && !TextUtils.isEmpty(payload.before())) {
                         // if commit > 1, then show compare activity
                         intent = CompareActivity.makeIntent(getActivity(), repoOwner, repoName,
                                 payload.before(), payload.head());
                     } else {
-                        // only 1 commit, then show the commit details
+                        // only 1 commit (or no usable base), then show the commit details
+                        String sha = commits.get(0).sha();
+                        if (TextUtils.isEmpty(sha)) {
+                            sha = payload.head();
+                        }
                         intent = CommitActivity.makeIntent(getActivity(),
-                                repoOwner, repoName, commits.get(0).sha());
+                                repoOwner, repoName, sha);
                     }
                 } else {
                     intent = RepositoryActivity.makeIntent(getActivity(), repoOwner, repoName);

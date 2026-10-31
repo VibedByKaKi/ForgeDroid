@@ -69,6 +69,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)$");
     private static final Pattern COMMIT_COMMENTS =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/comments$");
+    private static final Pattern REPO_README =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/readme$");
+
+    private static final String[] README_CANDIDATES = {
+            "README.md", "readme.md", "README.markdown", "README.rst",
+            "README.txt", "README", "readme"
+    };
 
     private enum BodyMode {
         NONE,
@@ -91,6 +98,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
 
         Request request = rewriteRequest(original);
+        Matcher readmeMatcher = REPO_README.matcher(original.url().encodedPath());
+        if (readmeMatcher.matches()) {
+            return synthesizeReadmeResponse(chain, request, readmeMatcher.group(1),
+                    readmeMatcher.group(2));
+        }
         BodyMode mode = detectBodyMode(original.url().encodedPath(), request.url().encodedPath());
         Response response = chain.proceed(request);
 
@@ -161,6 +173,114 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .code(200)
                 .message("OK")
                 .body(ResponseBody.create(JSON, "[]"))
+                .build();
+    }
+
+    /**
+     * GitHub's {@code GET /repos/.../readme} (HTML via Accept) has no Forgejo twin.
+     * Fetch a README candidate as raw markdown, render via {@code /markdown/raw}, and
+     * return the HTML so {@code getReadmeHtml} keeps working.
+     */
+    private static Response synthesizeReadmeResponse(Chain chain, Request original,
+            String owner, String repo) throws IOException {
+        if ("HEAD".equalsIgnoreCase(original.method())) {
+            for (String name : README_CANDIDATES) {
+                HttpUrl.Builder probe = original.url().newBuilder()
+                        .encodedPath("/api/v1/repos/" + owner + "/" + repo + "/raw/" + name);
+                Response head = chain.proceed(original.newBuilder()
+                        .url(probe.build())
+                        .head()
+                        .build());
+                int code = head.code();
+                head.close();
+                if (code >= 200 && code < 300) {
+                    return new Response.Builder()
+                            .request(original)
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .body(ResponseBody.create(JSON, ""))
+                            .build();
+                }
+            }
+            return new Response.Builder()
+                    .request(original)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(404)
+                    .message("Not Found")
+                    .body(ResponseBody.create(JSON, "{\"message\":\"Not Found\"}"))
+                    .build();
+        }
+
+        String ref = original.url().queryParameter("ref");
+        String markdown = null;
+        for (String name : README_CANDIDATES) {
+            HttpUrl.Builder rawUrl = original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + owner + "/" + repo + "/raw/" + name);
+            if (ref != null) {
+                rawUrl.setQueryParameter("ref", ref);
+            } else {
+                rawUrl.removeAllQueryParameters("ref");
+            }
+            Response rawResp = chain.proceed(original.newBuilder()
+                    .url(rawUrl.build())
+                    .get()
+                    .build());
+            try {
+                if (rawResp.isSuccessful() && rawResp.body() != null) {
+                    markdown = rawResp.body().string();
+                    break;
+                }
+            } finally {
+                rawResp.close();
+            }
+        }
+        if (markdown == null) {
+            return new Response.Builder()
+                    .request(original)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(404)
+                    .message("Not Found")
+                    .body(ResponseBody.create(JSON, "{\"message\":\"Not Found\"}"))
+                    .build();
+        }
+
+        HttpUrl markdownUrl = original.url().newBuilder()
+                .encodedPath("/api/v1/markdown/raw")
+                .query(null)
+                .build();
+        Request markdownReq = original.newBuilder()
+                .url(markdownUrl)
+                .post(okhttp3.RequestBody.create(
+                        MediaType.parse("text/plain; charset=utf-8"), markdown))
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .build();
+        Response rendered = chain.proceed(markdownReq);
+        if (!rendered.isSuccessful() || rendered.body() == null) {
+            // Fall back to wrapping the raw markdown in a pre tag so the UI still shows
+            // something rather than "No README".
+            rendered.close();
+            String escaped = markdown
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;");
+            String html = "<pre>" + escaped + "</pre>";
+            return new Response.Builder()
+                    .request(original)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(ResponseBody.create(MediaType.parse("text/html; charset=utf-8"), html))
+                    .build();
+        }
+        String html = rendered.body().string();
+        rendered.close();
+        return new Response.Builder()
+                .request(original)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(ResponseBody.create(MediaType.parse("text/html; charset=utf-8"), html))
                 .build();
     }
 
@@ -453,6 +573,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
         if (actor == null || repo == null) {
             return null;
         }
+        // Forgejo act_user omits GitHub's type; SDK switches NPE on null UserType.
+        if (!actor.has("type") || actor.isNull("type")) {
+            actor.put("type", "User");
+        }
 
         String fullName = repo.optString("full_name", "");
         if (fullName.isEmpty()) {
@@ -478,7 +602,6 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 payload = createPayload("repository", null);
                 break;
             case "create_branch":
-            case "mirror_sync_create":
                 type = "CreateEvent";
                 payload = createPayload("branch", shortRef(feed.optString("ref_name", "")));
                 break;
@@ -486,8 +609,15 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 type = "CreateEvent";
                 payload = createPayload("tag", shortRef(feed.optString("ref_name", "")));
                 break;
+            case "mirror_sync_create": {
+                // Mirror sync create covers both branches and tags; inspect the ref.
+                String syncRef = feed.optString("ref_name", "");
+                boolean isTag = syncRef.startsWith("refs/tags/");
+                type = "CreateEvent";
+                payload = createPayload(isTag ? "tag" : "branch", shortRef(syncRef));
+                break;
+            }
             case "delete_branch":
-            case "mirror_sync_delete":
                 type = "DeleteEvent";
                 payload = deletePayload("branch", shortRef(feed.optString("ref_name", "")));
                 break;
@@ -495,6 +625,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 type = "DeleteEvent";
                 payload = deletePayload("tag", shortRef(feed.optString("ref_name", "")));
                 break;
+            case "mirror_sync_delete": {
+                String syncRef = feed.optString("ref_name", "");
+                boolean isTag = syncRef.startsWith("refs/tags/");
+                type = "DeleteEvent";
+                payload = deletePayload(isTag ? "tag" : "branch", shortRef(syncRef));
+                break;
+            }
             case "fork":
             case "fork_repo":
                 type = "ForkEvent";
@@ -798,6 +935,20 @@ public class ForgejoCompatInterceptor implements Interceptor {
         if ("is_locked".equals(key)) {
             return "locked";
         }
+        // Forgejo user objects use *_count / full_name / website / description / created.
+        if ("followers_count".equals(key)) {
+            return "followers";
+        }
+        if ("following_count".equals(key)) {
+            return "following";
+        }
+        // Do not map full_name→name here: repos use full_name as owner/name.
+        if ("website".equals(key)) {
+            return "blog";
+        }
+        if ("created".equals(key)) {
+            return "created_at";
+        }
         return key;
     }
 
@@ -856,7 +1007,36 @@ public class ForgejoCompatInterceptor implements Interceptor {
         // Forgejo embeds repository.owner as a bare login string.
         if (out.has("owner") && out.opt("owner") instanceof String) {
             String login = out.optString("owner", "");
-            out.put("owner", new JSONObject().put("login", login));
+            out.put("owner", new JSONObject()
+                    .put("login", login)
+                    .put("type", "User"));
+        }
+        // Forgejo user objects often omit GitHub's type field; SDK switches NPE on null.
+        if (out.has("login") && (!out.has("type") || out.isNull("type"))) {
+            // Organizations still come through with login; defaulting to User is safe for
+            // display paths. Org-specific screens re-fetch when needed.
+            out.put("type", "User");
+        }
+        // Users: full_name is the display name. Repos already have their own name field.
+        if (out.has("login") && obj.has("full_name")
+                && (!out.has("name") || out.isNull("name") || out.optString("name").isEmpty())
+                && !obj.has("fork") && !obj.has("stars_count") && !obj.has("stargazers_count")) {
+            out.put("name", obj.optString("full_name", ""));
+        }
+        // User bios live in description on Forgejo; keep repo.description intact.
+        if (out.has("login") && out.has("description")
+                && (!out.has("bio") || out.isNull("bio"))
+                && !obj.has("fork") && !obj.has("stars_count") && !obj.has("stargazers_count")) {
+            out.put("bio", out.opt("description"));
+        }
+        if (obj.has("created_at") && !obj.isNull("created_at")) {
+            out.put("created_at", normalizeIso8601ToZulu(String.valueOf(obj.get("created_at"))));
+        }
+        if (obj.has("followers") && !obj.isNull("followers")) {
+            out.put("followers", obj.get("followers"));
+        }
+        if (obj.has("following") && !obj.isNull("following")) {
+            out.put("following", obj.get("following"));
         }
         // Nested commit objects from Forgejo omit comment_count.
         if (out.has("message") && !out.has("comment_count")) {

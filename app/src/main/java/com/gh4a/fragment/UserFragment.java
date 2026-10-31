@@ -126,7 +126,13 @@ public class UserFragment extends LoadingFragmentBase implements
         if (!Gh4Application.get().isAuthorized()) {
             return false;
         }
-        return mUser != null && mUser.type() == UserType.User;
+        return mUser != null && userType() == UserType.User;
+    }
+
+    /** Forgejo omits GitHub's type field; treat missing as a normal user. */
+    private UserType userType() {
+        UserType type = mUser != null ? mUser.type() : null;
+        return type != null ? type : UserType.User;
     }
 
     private void fillData() {
@@ -145,19 +151,20 @@ public class UserFragment extends LoadingFragmentBase implements
         mFollowersRow = mContentView.findViewById(R.id.followers_row);
         OverviewRow followingRow = mContentView.findViewById(R.id.following_row);
         OverviewRow membersRow = mContentView.findViewById(R.id.members_row);
-        boolean isUser = mUser.type() == UserType.User;
+        boolean isUser = userType() == UserType.User;
 
         mFollowersRow.setVisibility(isUser ? View.VISIBLE : View.GONE);
         followingRow.setVisibility(isUser ? View.VISIBLE : View.GONE);
-        membersRow.setVisibility(mUser.type() == UserType.Organization ? View.VISIBLE : View.GONE);
+        membersRow.setVisibility(userType() == UserType.Organization ? View.VISIBLE : View.GONE);
 
         if (isUser) {
             mFollowersRow.setIconClickListener(canFollowUser() ? this : null);
             mFollowersRow.setClickIntent(FollowerFollowingListActivity.makeIntent(
                     getActivity(), mUser.login(), true));
 
+            int followingCount = orZero(mUser.following());
             followingRow.setText(getResources().getQuantityString(R.plurals.following,
-                    mUser.following(), mUser.following()));
+                    followingCount, followingCount));
             followingRow.setClickIntent(FollowerFollowingListActivity.makeIntent(
                     getActivity(), mUser.login(), false));
         } else {
@@ -179,7 +186,7 @@ public class UserFragment extends LoadingFragmentBase implements
         reposRow.setClickIntent(RepositoryListActivity.makeIntent(getActivity(), mUser.login(), !isUser));
 
         OverviewRow typeRow = mContentView.findViewById(R.id.type_row);
-        switch (mUser.type()) {
+        switch (userType()) {
             case User:
                 typeRow.setVisibility(View.GONE);
                 break;
@@ -192,6 +199,9 @@ public class UserFragment extends LoadingFragmentBase implements
                 typeRow.setText(getString(R.string.user_type_bot));
                 typeRow.setIcon(ContextCompat.getDrawable(getActivity(), R.drawable.icon_user_bot));
                 typeRow.setVisibility(View.VISIBLE);
+                break;
+            default:
+                typeRow.setVisibility(View.GONE);
                 break;
         }
 
@@ -216,7 +226,8 @@ public class UserFragment extends LoadingFragmentBase implements
     private void updateFollowingUi() {
         boolean following = mIsFollowing != null && mIsFollowing;
         @PluralsRes int resId = following ? R.plurals.follower_and_self : R.plurals.follower;
-        int count = following ? mUser.followers() - 1 : mUser.followers();
+        int followers = orZero(mUser.followers());
+        int count = following ? Math.max(followers - 1, 0) : followers;
         mFollowersRow.setText(getResources().getQuantityString(resId, count, count));
         mFollowersRow.setToggleState(following);
     }
@@ -238,7 +249,7 @@ public class UserFragment extends LoadingFragmentBase implements
 
         if (id == R.id.btn_repos) {
             intent = RepositoryListActivity.makeIntent(getActivity(), mUser.login(),
-                    mUser.type() == UserType.Organization);
+                    userType() == UserType.Organization);
         } else if (view.getTag() instanceof Repository) {
             intent = RepositoryActivity.makeIntent(getActivity(), (Repository) view.getTag());
         } else if (view.getTag() instanceof User) {
@@ -341,7 +352,7 @@ public class UserFragment extends LoadingFragmentBase implements
                     if (mUser != null && mIsFollowing != null) {
                         mIsFollowing = !mIsFollowing;
                         mUser = mUser.toBuilder()
-                                .followers(mUser.followers() + (mIsFollowing ? 1 : -1))
+                                .followers(orZero(mUser.followers()) + (mIsFollowing ? 1 : -1))
                                 .build();
                         updateFollowingUi();
                     }
@@ -361,7 +372,7 @@ public class UserFragment extends LoadingFragmentBase implements
 
         if (mIsSelf) {
             observable = service.getUserRepositories(filterData, 1);
-        } else if (mUser.type() == UserType.Organization) {
+        } else if (userType() == UserType.Organization) {
             observable = service.getOrganizationRepositories(mUser.login(), filterData, 1);
         } else {
             observable = service.getUserRepositories(mUser.login(), filterData, 1);
@@ -378,7 +389,7 @@ public class UserFragment extends LoadingFragmentBase implements
     }
 
     private void loadOrganizationsIfUser(boolean force) {
-        if (mUser.type() != UserType.User) {
+        if (userType() != UserType.User) {
             fillOrganizations(null);
             return;
         }
@@ -394,7 +405,7 @@ public class UserFragment extends LoadingFragmentBase implements
     }
 
     private void loadOrganizationMemberCountIfOrg(boolean force) {
-        if (mUser.type() != UserType.Organization) {
+        if (userType() != UserType.Organization) {
             return;
         }
         final OrganizationMemberService service = ServiceFactory.get(OrganizationMemberService.class, force, 1);
