@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +40,7 @@ import okhttp3.ResponseBody;
  *   <li>GitHub event endpoints → {@code /activities/feeds}, remapped to GitHub event JSON</li>
  *   <li>Single-commit {@code /commits/{sha}} → {@code /git/commits/{sha}}</li>
  *   <li>Missing per-file {@code patch} on commits/PR files → fill from {@code .diff}</li>
+ *   <li>Missing {@code /contributors} → synthesize from recent commit authors</li>
  *   <li>Missing commit-comments API → empty list</li>
  *   <li>ISO-8601 offsets → {@code ...Z} for githubsdk FormattedTimeAdapter</li>
  *   <li>Synthetic {@code Link} pagination from {@code X-Total-Count}</li>
@@ -89,6 +93,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/comments$");
     private static final Pattern PULL_FILES =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/files$");
+    private static final Pattern CONTRIBUTORS =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/contributors$");
+    private static final Pattern COMPARE =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/compare/(.+)$");
     // GitHub lists PR review comments at /pulls/{n}/comments; Forgejo 404s that path.
     private static final Pattern PULL_REVIEW_COMMENTS =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/comments$");
@@ -147,6 +155,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
         if (WIKI_PAGES.matcher(originalPath).matches()) {
             // Missing wikis 404; treat as empty so the wiki screen can show its empty state.
             return emptyJsonArray(original);
+        }
+        Matcher contributors = CONTRIBUTORS.matcher(originalPath);
+        if (contributors.matches() && "GET".equalsIgnoreCase(original.method())) {
+            // Forgejo has no GitHub contributors endpoint; approximate from commit authors.
+            return synthesizeContributors(chain, original,
+                    contributors.group(1), contributors.group(2));
         }
         Matcher singleUser = SINGLE_USER.matcher(originalPath);
         if (singleUser.matches() && "GET".equalsIgnoreCase(original.method())) {
@@ -278,9 +292,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             String body) throws IOException, JSONException {
         Matcher commit = FORGEJO_GIT_COMMIT.matcher(path);
         Matcher pullFiles = PULL_FILES.matcher(path);
+        Matcher compare = COMPARE.matcher(path);
         final String diffPath;
         final JSONArray files;
-        final JSONObject commitObj;
+        final JSONObject wrapperObj;
         if (commit.matches()) {
             JSONObject obj = new JSONObject(body);
             files = obj.optJSONArray("files");
@@ -288,7 +303,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 return body;
             }
             diffPath = path + ".diff";
-            commitObj = obj;
+            wrapperObj = obj;
         } else if (pullFiles.matches()) {
             String trimmed = body.trim();
             if (!trimmed.startsWith("[")) {
@@ -300,25 +315,155 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
             diffPath = "/api/v1/repos/" + pullFiles.group(1) + "/" + pullFiles.group(2)
                     + "/pulls/" + pullFiles.group(3) + ".diff";
-            commitObj = null;
+            wrapperObj = null;
+        } else if (compare.matches()) {
+            JSONObject obj = new JSONObject(body);
+            // GitHub uses total_commits via Moshi; keep Forgejo's snake_case aliasing.
+            if (!obj.has("total_commits") && obj.has("totalCommits")) {
+                obj.put("total_commits", obj.opt("totalCommits"));
+            }
+            if (!obj.has("status") || obj.isNull("status")) {
+                int total = obj.optInt("total_commits",
+                        obj.optJSONArray("commits") != null
+                                ? obj.optJSONArray("commits").length() : 0);
+                obj.put("status", total > 0 ? "ahead" : "identical");
+                obj.put("ahead_by", total);
+                obj.put("behind_by", 0);
+                obj.put("total_commits", total);
+            }
+            files = obj.optJSONArray("files");
+            if (files == null || files.length() == 0 || !filesNeedPatches(files)) {
+                return obj.toString();
+            }
+            // API .../compare/{base}...{head}.diff often 500s; the HTML compare.diff works.
+            diffPath = "/" + compare.group(1) + "/" + compare.group(2)
+                    + "/compare/" + compare.group(3) + ".diff";
+            wrapperObj = obj;
         } else {
             return body;
         }
 
         String diffText = fetchPlainText(chain, request, diffPath);
         if (diffText == null || diffText.isEmpty()) {
-            return body;
+            return wrapperObj != null ? wrapperObj.toString() : body;
         }
         Map<String, ParsedFilePatch> patches = parseUnifiedDiffPatches(diffText);
         if (patches.isEmpty()) {
-            return body;
+            return wrapperObj != null ? wrapperObj.toString() : body;
         }
         applyParsedPatches(files, patches);
-        if (commitObj != null) {
-            commitObj.put("files", files);
-            return commitObj.toString();
+        if (wrapperObj != null) {
+            wrapperObj.put("files", files);
+            return wrapperObj.toString();
         }
         return files.toString();
+    }
+
+    /**
+     * Build a GitHub-shaped contributors list from recent commit authors.
+     * Forgejo has no {@code /repos/{owner}/{repo}/contributors} endpoint.
+     */
+    private static Response synthesizeContributors(Chain chain, Request original,
+            String owner, String repo) throws IOException {
+        String pageParam = original.url().queryParameter("page");
+        int page = 1;
+        if (pageParam != null) {
+            try {
+                page = Integer.parseInt(pageParam);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        // Approximate a single page: page>1 is empty so the pager stops.
+        if (page > 1) {
+            return emptyJsonArray(original);
+        }
+
+        Map<String, JSONObject> byLogin = new LinkedHashMap<>();
+        Map<String, Integer> counts = new HashMap<>();
+        final int pageSize = 50;
+        final int maxPages = 4;
+        for (int p = 1; p <= maxPages; p++) {
+            HttpUrl commitsUrl = original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + owner + "/" + repo + "/commits")
+                    .query(null)
+                    .addQueryParameter("limit", String.valueOf(pageSize))
+                    .addQueryParameter("page", String.valueOf(p))
+                    .build();
+            Response resp = chain.proceed(original.newBuilder().url(commitsUrl).get().build());
+            String body;
+            try {
+                if (!resp.isSuccessful() || resp.body() == null) {
+                    break;
+                }
+                body = resp.body().string();
+            } finally {
+                resp.close();
+            }
+            if (body == null || body.trim().isEmpty() || "null".equals(body.trim())) {
+                break;
+            }
+            try {
+                JSONArray commits = new JSONArray(body);
+                if (commits.length() == 0) {
+                    break;
+                }
+                for (int i = 0; i < commits.length(); i++) {
+                    JSONObject commit = commits.optJSONObject(i);
+                    if (commit == null) {
+                        continue;
+                    }
+                    JSONObject author = commit.optJSONObject("author");
+                    if (author == null) {
+                        continue;
+                    }
+                    String login = author.optString("login", "");
+                    if (login.isEmpty()) {
+                        login = author.optString("username", "");
+                    }
+                    if (login.isEmpty()) {
+                        continue;
+                    }
+                    counts.put(login, counts.containsKey(login) ? counts.get(login) + 1 : 1);
+                    if (!byLogin.containsKey(login)) {
+                        byLogin.put(login, author);
+                    }
+                }
+                if (commits.length() < pageSize) {
+                    break;
+                }
+            } catch (JSONException e) {
+                Log.w(TAG, "Failed to parse commits while synthesizing contributors", e);
+                break;
+            }
+        }
+
+        List<Map.Entry<String, Integer>> ranked = new ArrayList<>(counts.entrySet());
+        Collections.sort(ranked, new Comparator<Map.Entry<String, Integer>>() {
+            @Override
+            public int compare(Map.Entry<String, Integer> a, Map.Entry<String, Integer> b) {
+                return Integer.compare(b.getValue(), a.getValue());
+            }
+        });
+
+        JSONArray out = new JSONArray();
+        try {
+            for (Map.Entry<String, Integer> entry : ranked) {
+                JSONObject user = byLogin.get(entry.getKey());
+                if (user == null) {
+                    continue;
+                }
+                JSONObject copy = aliasInObject(new JSONObject(user.toString()));
+                copy.put("contributions", entry.getValue());
+                if (!copy.has("type") || copy.isNull("type")) {
+                    copy.put("type", "User");
+                }
+                out.put(copy);
+            }
+        } catch (JSONException e) {
+            Log.w(TAG, "Failed to build contributors list", e);
+            return emptyJsonArray(original);
+        }
+        return jsonResponse(original, out.toString());
     }
 
     private static boolean filesNeedPatches(JSONArray files) throws JSONException {
