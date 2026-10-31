@@ -198,24 +198,59 @@ public class ApiHelpers {
             return uri;
         }
 
-        // Only normalize API links
-        if (!uri.getPath().contains("/api/v3/") && !uri.getAuthority().contains("api.")) {
+        // GitHub api.* /api/v3, Forgejo /api/v1, and Forgejo HTML URLs on the active instance
+        String pathIn = uri.getPath() != null ? uri.getPath() : "";
+        boolean forgejoApi = pathIn.contains("/api/v1/");
+        boolean githubApi = pathIn.contains("/api/v3/") || uri.getAuthority().contains("api.");
+        String instanceHost = activeInstanceHost();
+        boolean activeInstance = instanceHost != null
+                && instanceHost.equalsIgnoreCase(uri.getHost());
+
+        if (!forgejoApi && !githubApi && !activeInstance) {
             return uri;
         }
 
-        String path = uri.getPath()
-                .replace("/api/v3/", "/")
-                .replace("repos/", "")
-                .replace("commits/", "commit/")
-                .replace("pulls/", "pull/");
+        String path = pathIn;
+        String authority = uri.getAuthority();
 
-        String authority = uri.getAuthority()
-                .replace("api.", "");
+        if (forgejoApi || githubApi) {
+            path = path
+                    .replace("/api/v1/", "/")
+                    .replace("/api/v3/", "/")
+                    .replace("repos/", "")
+                    .replace("commits/", "commit/")
+                    .replace("pulls/", "pull/");
+            authority = authority.replace("api.", "");
+        }
+
+        // LinkParser only accepts github.com. Map the active Forgejo host onto that synthetic
+        // authority, and rewrite Forgejo's /pulls/N HTML paths to GitHub's /pull/N.
+        if (activeInstance) {
+            authority = "github.com";
+            path = path.replaceAll("/pulls/(\\d+)(/|$)", "/pull/$1$2");
+        }
 
         return uri.buildUpon()
                 .path(path)
                 .authority(authority)
                 .build();
+    }
+
+    @Nullable
+    private static String activeInstanceHost() {
+        try {
+            Gh4Application app = Gh4Application.get();
+            if (app == null) {
+                return null;
+            }
+            String instanceUrl = app.getAuthInstanceUrl();
+            if (TextUtils.isEmpty(instanceUrl)) {
+                return null;
+            }
+            return Uri.parse(instanceUrl).getHost();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     public static Pair<String, String> extractRepoOwnerAndNameFromIssue(Issue issue) {

@@ -59,6 +59,14 @@ public class CommitStatusBox extends LinearLayoutCompat implements View.OnClickL
     public void fillStatus(List<StatusWrapper> statuses, PullRequest.MergeableState mergableState) {
         final int statusIconDrawableResId;
         final int statusLabelResId;
+        // Forgejo often omits mergeable_state; treat null like Unknown.
+        if (mergableState == null) {
+            if (statuses == null || statuses.isEmpty()) {
+                setVisibility(View.GONE);
+                return;
+            }
+            mergableState = PullRequest.MergeableState.Unknown;
+        }
         switch (mergableState) {
             case Behind:
                 statusIconDrawableResId = R.drawable.pull_request_merge_dirty;

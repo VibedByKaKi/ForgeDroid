@@ -69,6 +69,17 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)$");
     private static final Pattern COMMIT_COMMENTS =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/comments$");
+    // GitHub lists PR review comments at /pulls/{n}/comments; Forgejo 404s that path.
+    private static final Pattern PULL_REVIEW_COMMENTS =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/comments$");
+    private static final Pattern REQUESTED_REVIEWERS =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
+    private static final Pattern REACTIONS =
+            Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern ISSUE_TIMELINE =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/issues/([^/]+)/timeline$");
+    private static final Pattern CHECK_RUNS =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/check-runs$");
     private static final Pattern REPO_README =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/readme$");
 
@@ -83,6 +94,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
         ISSUE_SEARCH_ARRAY,
         REPO_SEARCH_OBJECT,
         USER_SEARCH_OBJECT,
+        ISSUE_TIMELINE,
         JSON_ALIAS_ONLY
     }
 
@@ -92,9 +104,18 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String originalPath = original.url().encodedPath();
         if (PUBLIC_EVENTS.matcher(originalPath).matches()
                 || GISTS.matcher(originalPath).matches()
-                || COMMIT_COMMENTS.matcher(originalPath).matches()) {
-            // Forgejo has no global public timeline, gists, or commit-comments API.
+                || COMMIT_COMMENTS.matcher(originalPath).matches()
+                || PULL_REVIEW_COMMENTS.matcher(originalPath).matches()) {
+            // Forgejo has no global public timeline, gists, commit-comments, or
+            // GitHub-shaped PR review-comments list API.
             return emptyJsonArray(original);
+        }
+        if (REQUESTED_REVIEWERS.matcher(originalPath).matches()) {
+            return emptyJsonObject(original);
+        }
+        if (CHECK_RUNS.matcher(originalPath).matches()) {
+            // Forgejo has no GitHub Checks API; return an empty check-runs page.
+            return jsonResponse(original, "{\"total_count\":0,\"check_runs\":[]}");
         }
 
         Request request = rewriteRequest(original);
@@ -121,6 +142,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
 
         try {
+            // Forgejo returns a literal JSON null for empty reaction lists.
+            if (response.isSuccessful()
+                    && REACTIONS.matcher(path).matches()
+                    && "null".equals(bodyString.trim())) {
+                bodyString = "[]";
+            }
+
             String rewritten = bodyString;
             if (response.isSuccessful()) {
                 switch (mode) {
@@ -136,6 +164,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         break;
                     case USER_SEARCH_OBJECT:
                         rewritten = convertUserSearchToSearchPage(bodyString);
+                        break;
+                    case ISSUE_TIMELINE:
+                        rewritten = convertIssueTimeline(bodyString);
                         break;
                     default:
                         break;
@@ -174,6 +205,116 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .message("OK")
                 .body(ResponseBody.create(JSON, "[]"))
                 .build();
+    }
+
+    private static Response emptyJsonObject(Request original) {
+        return jsonResponse(original, "{}");
+    }
+
+    private static Response jsonResponse(Request original, String body) {
+        return new Response.Builder()
+                .request(original)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(ResponseBody.create(JSON, body))
+                .build();
+    }
+
+    /**
+     * Forgejo timeline items use {@code type} (comment/close/pull_push/…) while the GitHub
+     * SDK expects {@code event} (commented/closed/head_ref_force_pushed/…). Also copy
+     * {@code user} → {@code actor} for event items.
+     */
+    private static String convertIssueTimeline(String body) throws JSONException {
+        JSONArray in = new JSONArray(body);
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject item = in.getJSONObject(i);
+            String type = item.optString("type", item.optString("event", ""));
+            String event = mapTimelineTypeToEvent(type);
+            if (event == null) {
+                continue;
+            }
+            item.put("event", event);
+            if (!item.has("actor") || item.isNull("actor")) {
+                Object user = item.opt("user");
+                if (user instanceof JSONObject) {
+                    item.put("actor", user);
+                }
+            }
+            out.put(item);
+        }
+        return out.toString();
+    }
+
+    private static String mapTimelineTypeToEvent(String type) {
+        if (type == null || type.isEmpty()) {
+            return null;
+        }
+        switch (type) {
+            case "comment":
+                return "commented";
+            case "close":
+            case "closed":
+                return "closed";
+            case "reopen":
+            case "reopened":
+                return "reopened";
+            case "merge":
+            case "merged":
+                return "merged";
+            case "label":
+            case "labeled":
+                return "labeled";
+            case "unlabel":
+            case "unlabeled":
+                return "unlabeled";
+            case "milestone":
+            case "milestoned":
+                return "milestoned";
+            case "demilestone":
+            case "demilestoned":
+                return "demilestoned";
+            case "assignees":
+            case "assigned":
+                return "assigned";
+            case "unassigned":
+                return "unassigned";
+            case "lock":
+            case "locked":
+                return "locked";
+            case "unlock":
+            case "unlocked":
+                return "unlocked";
+            case "rename":
+            case "renamed":
+                return "renamed";
+            case "review_requested":
+                return "review_requested";
+            case "review_request_removed":
+                return "review_request_removed";
+            case "pull_push":
+            case "commit_ref":
+                // Forgejo push markers lack GitHub commit metadata; skip them.
+                return null;
+            case "change_title":
+                return "renamed";
+            // Already GitHub-shaped
+            case "commented":
+            case "head_ref_force_pushed":
+            case "head_ref_deleted":
+            case "head_ref_restored":
+            case "ready_for_review":
+            case "convert_to_draft":
+            case "review_dismissed":
+            case "cross-referenced":
+            case "transferred":
+                return type;
+            default:
+                // Unknown Forgejo types: drop rather than fail Moshi parsing.
+                return null;
+        }
     }
 
     /**
@@ -299,6 +440,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
         if (rewrittenPath.contains("/activities/feeds")) {
             return BodyMode.ACTIVITY_FEED;
+        }
+        if (ISSUE_TIMELINE.matcher(originalPath).matches()
+                || ISSUE_TIMELINE.matcher(rewrittenPath).matches()) {
+            return BodyMode.ISSUE_TIMELINE;
         }
         return BodyMode.JSON_ALIAS_ONLY;
     }
@@ -1011,11 +1156,47 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     .put("login", login)
                     .put("type", "User"));
         }
-        // Forgejo user objects often omit GitHub's type field; SDK switches NPE on null.
+        // Forgejo users/orgs expose username (and orgs often omit login entirely).
+        if ((!out.has("login") || out.isNull("login") || out.optString("login").isEmpty())
+                && obj.has("username") && !obj.isNull("username")) {
+            out.put("login", obj.optString("username"));
+        }
+        // Forgejo user/org objects often omit GitHub's type field; SDK switches NPE on null.
         if (out.has("login") && (!out.has("type") || out.isNull("type"))) {
-            // Organizations still come through with login; defaulting to User is safe for
-            // display paths. Org-specific screens re-fetch when needed.
-            out.put("type", "User");
+            // Org list payloads include repo_admin_change_team_access; treat those as orgs.
+            if (obj.has("repo_admin_change_team_access")) {
+                out.put("type", "Organization");
+            } else {
+                out.put("type", "User");
+            }
+        }
+        // Notification threads: numeric id + "Pull" subject type + missing reason.
+        if (out.has("subject") && out.has("unread")) {
+            Object idVal = out.opt("id");
+            if (idVal instanceof Number) {
+                out.put("id", String.valueOf(((Number) idVal).longValue()));
+            }
+            if (!out.has("reason") || out.isNull("reason")) {
+                out.put("reason", "subscribed");
+            }
+            JSONObject subject = out.optJSONObject("subject");
+            if (subject != null) {
+                String subjectType = subject.optString("type", "");
+                if ("Pull".equals(subjectType)) {
+                    subject.put("type", "PullRequest");
+                    // Forgejo keeps the API url under /issues/N even for PRs. Rewrite to
+                    // /pulls/N so normalizeUri → /pull/N and BrowseFilter opens the PR screen.
+                    String apiUrl = subject.optString("url", "");
+                    if (apiUrl.contains("/issues/")) {
+                        subject.put("url", apiUrl.replace("/issues/", "/pulls/"));
+                    } else {
+                        String htmlUrl = subject.optString("html_url", "");
+                        if (!htmlUrl.isEmpty()) {
+                            subject.put("url", htmlUrl);
+                        }
+                    }
+                }
+            }
         }
         // Users: full_name is the display name. Repos already have their own name field.
         if (out.has("login") && obj.has("full_name")
@@ -1042,8 +1223,16 @@ public class ForgejoCompatInterceptor implements Interceptor {
         if (out.has("message") && !out.has("comment_count")) {
             out.put("comment_count", 0);
         }
-        // Single-commit file entries often lack per-file stats.
+        // Pull requests: Forgejo may omit mergeable_state while still sending mergeable.
+        if (out.has("mergeable") && (!out.has("mergeable_state") || out.isNull("mergeable_state")
+                || out.optString("mergeable_state", "").isEmpty())) {
+            out.put("mergeable_state", out.optBoolean("mergeable", false) ? "clean" : "dirty");
+        }
+        // Single-commit / PR file entries: Forgejo uses status "changed" for GitHub "modified".
         if (out.has("filename")) {
+            if ("changed".equals(out.optString("status", ""))) {
+                out.put("status", "modified");
+            }
             if (!out.has("additions") || out.isNull("additions")) {
                 out.put("additions", 0);
             }

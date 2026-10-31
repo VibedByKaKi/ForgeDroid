@@ -252,7 +252,9 @@ public class CommitFragment extends LoadingFragmentBase implements OnClickListen
         adjustVisibility(R.id.card_deleted, deletedFiles);
 
         // Forgejo often omits per-file additions/deletions but still provides commit.stats.
-        if (totalAdditions == 0 && totalDeletions == 0 && mCommit.stats() != null) {
+        // PullRequestFilesFragment reuses this path with a null mCommit.
+        if (totalAdditions == 0 && totalDeletions == 0
+                && mCommit != null && mCommit.stats() != null) {
             totalAdditions = ApiHelpers.nullToZero(mCommit.stats().additions());
             totalDeletions = ApiHelpers.nullToZero(mCommit.stats().deletions());
         }
