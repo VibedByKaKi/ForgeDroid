@@ -17,6 +17,8 @@ package com.gh4a.fragment;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.text.TextUtils;
+
 import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
 import android.util.Pair;
@@ -534,11 +536,16 @@ public abstract class EventListFragment extends PagedDataBaseFragment<GitHubEven
                     prSingles.put(new PrIdentifier(event.repo(), payload.number()), prSingle);
                 } else if (event.type() == GitHubEventType.PushEvent) {
                     PushPayload payload = (PushPayload) event.payload();
-                    Single<Response<CommitCompare>> pushSingle = commitService.compareCommits(
-                            repoOwnerAndName.first, repoOwnerAndName.second,
-                            payload.before(), payload.head());
-                    pushSingles.put(new PushIdentifier(event.repo(),
-                            payload.before(), payload.head()), pushSingle);
+                    // Forgejo activity feeds often omit the previous SHA; GitHub compare
+                    // with an empty base returns 404, so skip enrichment in that case.
+                    if (!TextUtils.isEmpty(payload.before())
+                            && !TextUtils.isEmpty(payload.head())) {
+                        Single<Response<CommitCompare>> pushSingle = commitService.compareCommits(
+                                repoOwnerAndName.first, repoOwnerAndName.second,
+                                payload.before(), payload.head());
+                        pushSingles.put(new PushIdentifier(event.repo(),
+                                payload.before(), payload.head()), pushSingle);
+                    }
                 }
             }
 

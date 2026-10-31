@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.gh4a.utils.ApiHelpers;
+import com.gh4a.utils.ForgejoCompatInterceptor;
 import com.meisolsson.githubsdk.core.ByteArrayResponseConverterFactory;
 import com.meisolsson.githubsdk.core.GitHubPaginationInterceptor;
 import com.meisolsson.githubsdk.core.ServiceGenerator;
@@ -223,6 +224,10 @@ public class ServiceFactory {
             }
             return chain.proceed(original);
         });
+
+        // Map Forgejo endpoints/fields onto the GitHub-shaped SDK (events, stars_count, …).
+        // Must run after the /api/v1 rewrite so path matching sees the final URL.
+        clientBuilder.addInterceptor(new ForgejoCompatInterceptor());
 
         Retrofit retrofit = RETROFIT_BUILDER
                 .baseUrl(instanceBaseUrl + "/")

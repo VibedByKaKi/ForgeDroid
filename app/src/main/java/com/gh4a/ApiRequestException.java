@@ -23,11 +23,13 @@ public class ApiRequestException extends RuntimeException {
 
         ClientErrorResponse error = null;
         try {
-            error = ServiceGenerator.moshi
-                    .adapter(ClientErrorResponse.class)
-                    .fromJson(response.errorBody().source());
-        } catch (IOException e) {
-            // ignored
+            if (response.errorBody() != null) {
+                error = ServiceGenerator.moshi
+                        .adapter(ClientErrorResponse.class)
+                        .fromJson(response.errorBody().source());
+            }
+        } catch (IOException | RuntimeException e) {
+            // Forgejo often returns plain text like "404 page not found" instead of JSON.
         }
         mResponse = error;
     }

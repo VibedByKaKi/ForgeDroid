@@ -448,8 +448,8 @@ public class RepositoryFragment extends LoadingFragmentBase implements
                 .map(SearchPage::totalCount)
                 .compose(makeLoaderSingle(ID_LOADER_PULL_REQUEST_COUNT, force))
                 .subscribe(count -> {
-                    int totalCount = count.intValue();
-                    int issueCount = mRepository.openIssuesCount() - totalCount;
+                    int totalCount = ApiHelpers.nullToZero(count);
+                    int issueCount = ApiHelpers.nullToZero(mRepository.openIssuesCount()) - totalCount;
 
                     OverviewRow issuesRow = mContentView.findViewById(R.id.issues_row);
                     issuesRow.setText(getResources().getQuantityString(R.plurals.issue, issueCount, issueCount));
@@ -470,7 +470,8 @@ public class RepositoryFragment extends LoadingFragmentBase implements
                     if (mIsStarring != null) {
                         mIsStarring = !mIsStarring;
                         mRepository = mRepository.toBuilder()
-                                .stargazersCount(mRepository.stargazersCount() + (mIsStarring ? 1 : -1))
+                                .stargazersCount(ApiHelpers.nullToZero(mRepository.stargazersCount())
+                                        + (mIsStarring ? 1 : -1))
                                 .build();
                         updateStargazerUi();
                     }
@@ -504,7 +505,8 @@ public class RepositoryFragment extends LoadingFragmentBase implements
                     if (mIsWatching != null) {
                         mIsWatching = result;
                         mRepository = mRepository.toBuilder()
-                                .subscribersCount(mRepository.subscribersCount() + (mIsWatching ? 1 : -1))
+                                .subscribersCount(ApiHelpers.nullToZero(mRepository.subscribersCount())
+                                        + (mIsWatching ? 1 : -1))
                                 .build();
                         updateWatcherUi();
                     }

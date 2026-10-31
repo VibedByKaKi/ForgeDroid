@@ -73,7 +73,7 @@ public class CommitAdapter extends RootAdapter<Commit, CommitAdapter.ViewHolder>
         holder.tvSha.setText(commit.sha().substring(0, 10));
         holder.ivDescriptionIndicator.setVisibility(pos > 0 ? View.VISIBLE : View.GONE);
 
-        int comments = commit.commit().commentCount();
+        int comments = ApiHelpers.nullToZero(commit.commit().commentCount());
         if (comments > 0) {
             holder.tvComments.setText(String.valueOf(comments));
             holder.tvComments.setVisibility(View.VISIBLE);

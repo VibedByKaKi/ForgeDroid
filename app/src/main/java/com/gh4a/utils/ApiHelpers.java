@@ -53,6 +53,10 @@ public class ApiHelpers {
         return value != null ? value : 0;
     }
 
+    public static int nullToZero(@Nullable Long value) {
+        return value != null ? value.intValue() : 0;
+    }
+
     public interface IssueState {
         String OPEN = "open";
         String CLOSED = "closed";
