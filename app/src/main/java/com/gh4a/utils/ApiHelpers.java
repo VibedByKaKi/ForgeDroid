@@ -220,12 +220,31 @@ public class ApiHelpers {
 
     public static Pair<String, String> extractRepoOwnerAndNameFromIssue(Issue issue) {
         Repository repo = issue.repository();
-        if (repo != null) {
+        if (repo != null && !TextUtils.isEmpty(repo.fullName())) {
             String[] splitted = repo.fullName().split("/");
-            return Pair.create(splitted[0], splitted[1]);
+            if (splitted.length >= 2) {
+                return Pair.create(splitted[0], splitted[1]);
+            }
         }
-        String[] urlParts = issue.url().split("/");
-        return Pair.create(urlParts[4], urlParts[5]);
+        return extractRepoOwnerAndNameFromUrl(issue.url());
+    }
+
+    /**
+     * Parse owner/repo from a GitHub or Forgejo API URL.
+     * GitHub: {@code https://api.github.com/repos/OWNER/REPO/...}
+     * Forgejo: {@code https://host/api/v1/repos/OWNER/REPO/...}
+     */
+    public static Pair<String, String> extractRepoOwnerAndNameFromUrl(String url) {
+        if (TextUtils.isEmpty(url)) {
+            return Pair.create(null, null);
+        }
+        String[] parts = url.split("/");
+        for (int i = 0; i < parts.length - 2; i++) {
+            if ("repos".equals(parts[i])) {
+                return Pair.create(parts[i + 1], parts[i + 2]);
+            }
+        }
+        return Pair.create(null, null);
     }
 
     private final static char[] HEX_CHARS = "0123456789abcdef".toCharArray();

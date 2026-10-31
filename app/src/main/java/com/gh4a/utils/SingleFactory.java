@@ -10,15 +10,15 @@ import com.gh4a.model.Trend;
 import com.gh4a.model.TrendService;
 import com.meisolsson.githubsdk.core.ServiceGenerator;
 import com.meisolsson.githubsdk.model.NotificationThread;
+import com.meisolsson.githubsdk.model.Permissions;
 import com.meisolsson.githubsdk.model.Repository;
 import com.meisolsson.githubsdk.service.activity.NotificationService;
-import com.meisolsson.githubsdk.service.repositories.RepositoryCollaboratorService;
+import com.meisolsson.githubsdk.service.repositories.RepositoryService;
 
 import org.simpleframework.xml.core.Persister;
 import org.simpleframework.xml.transform.RegistryMatcher;
 import org.simpleframework.xml.transform.Transform;
 
-import java.net.HttpURLConnection;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -44,15 +44,17 @@ public class SingleFactory {
             return Single.just(false);
         }
 
-        RepositoryCollaboratorService service =
-                ServiceFactory.get(RepositoryCollaboratorService.class, bypassCache);
-
-        return service.isUserCollaborator(repoOwner, repoName, app.getAuthLogin())
-                // there's no actual content, result is always null
-                .map(ApiHelpers::mapToTrueOnSuccess)
-                // the API returns 403 if the user doesn't have push access,
-                // which in turn means he isn't a collaborator
-                .compose(RxUtils.mapFailureToValue(HttpURLConnection.HTTP_FORBIDDEN, false));
+        // Forgejo's /collaborators/{user} 404s even for owners; use repo permissions instead.
+        // Push (or admin) is the capability the UI gates on for issue/PR management.
+        RepositoryService service = ServiceFactory.get(RepositoryService.class, bypassCache);
+        return service.getRepository(repoOwner, repoName)
+                .map(ApiHelpers::throwOnFailure)
+                .map(repo -> {
+                    Permissions permissions = repo.permissions();
+                    return permissions != null
+                            && (Boolean.TRUE.equals(permissions.push())
+                            || Boolean.TRUE.equals(permissions.admin()));
+                });
     }
 
     public static Single<NotificationListLoadResult> getNotifications(boolean all,

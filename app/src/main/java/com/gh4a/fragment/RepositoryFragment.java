@@ -449,7 +449,9 @@ public class RepositoryFragment extends LoadingFragmentBase implements
                 .compose(makeLoaderSingle(ID_LOADER_PULL_REQUEST_COUNT, force))
                 .subscribe(count -> {
                     int totalCount = ApiHelpers.nullToZero(count);
-                    int issueCount = ApiHelpers.nullToZero(mRepository.openIssuesCount()) - totalCount;
+                    // Forgejo's open_issues_count is issues-only (unlike GitHub, which
+                    // includes PRs). Do not subtract PR count or the UI goes negative.
+                    int issueCount = ApiHelpers.nullToZero(mRepository.openIssuesCount());
 
                     OverviewRow issuesRow = mContentView.findViewById(R.id.issues_row);
                     issuesRow.setText(getResources().getQuantityString(R.plurals.issue, issueCount, issueCount));

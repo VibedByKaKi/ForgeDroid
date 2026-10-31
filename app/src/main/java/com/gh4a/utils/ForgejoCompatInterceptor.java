@@ -7,6 +7,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -26,8 +28,14 @@ import okhttp3.ResponseBody;
  * Adapts Forgejo/Gitea API quirks so the GitHub-oriented SDK keeps working:
  * <ul>
  *   <li>{@code stars_count} → {@code stargazers_count}</li>
+ *   <li>{@code watchers_count} → {@code subscribers_count}</li>
+ *   <li>String {@code repository.owner} → {@code { "login": "..." }}</li>
+ *   <li>{@code is_locked} → {@code locked}</li>
  *   <li>{@code per_page} → {@code limit}</li>
  *   <li>GitHub event endpoints → {@code /activities/feeds}, remapped to GitHub event JSON</li>
+ *   <li>Single-commit {@code /commits/{sha}} → {@code /git/commits/{sha}}</li>
+ *   <li>Missing commit-comments API → empty list</li>
+ *   <li>ISO-8601 offsets → {@code ...Z} for githubsdk FormattedTimeAdapter</li>
  *   <li>Synthetic {@code Link} pagination from {@code X-Total-Count}</li>
  * </ul>
  */
@@ -57,6 +65,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/search/users$");
     private static final Pattern GISTS =
             Pattern.compile("^/api/v1/(gists|users/[^/]+/gists)(/.*)?$");
+    private static final Pattern SINGLE_COMMIT =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)$");
+    private static final Pattern COMMIT_COMMENTS =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/comments$");
 
     private enum BodyMode {
         NONE,
@@ -72,8 +84,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
         Request original = chain.request();
         String originalPath = original.url().encodedPath();
         if (PUBLIC_EVENTS.matcher(originalPath).matches()
-                || GISTS.matcher(originalPath).matches()) {
-            // Forgejo has no global public timeline and no gists API.
+                || GISTS.matcher(originalPath).matches()
+                || COMMIT_COMMENTS.matcher(originalPath).matches()) {
+            // Forgejo has no global public timeline, gists, or commit-comments API.
             return emptyJsonArray(original);
         }
 
@@ -248,6 +261,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 urlBuilder.addQueryParameter("limit", "30");
             }
             changed = true;
+        } else if ((m = SINGLE_COMMIT.matcher(path)).matches()) {
+            // Forgejo serves single commits under /git/commits/{sha}, not /commits/{sha}.
+            urlBuilder.encodedPath("/api/v1/repos/" + m.group(1) + "/" + m.group(2)
+                    + "/git/commits/" + m.group(3));
+            changed = true;
         }
 
         if (!changed) {
@@ -319,12 +337,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
         urlBuilder.setQueryParameter("created", String.valueOf(created));
         urlBuilder.setQueryParameter("assigned", String.valueOf(assigned));
         urlBuilder.setQueryParameter("mentioned", String.valueOf(mentioned));
-        if (owner != null) {
-            urlBuilder.setQueryParameter("owner", owner);
-        }
-        if (repo != null) {
-            // Forgejo uses "repo" as repo name filter on issues search.
-            urlBuilder.setQueryParameter("repo", repo);
+        // Forgejo's owner/repo query params do not scope results to that repository
+        // (they still return cross-repo hits). Keep GitHub's repo:owner/name in q.
+        if (owner != null && repo != null) {
+            if (leftover.length() > 0) {
+                leftover.append(' ');
+            }
+            leftover.append("repo:").append(owner).append('/').append(repo);
         }
         if (leftover.length() > 0) {
             urlBuilder.setQueryParameter("q", leftover.toString());
@@ -752,7 +771,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
     }
 
     /**
-     * Deep-copy JSON renaming Forgejo {@code stars_count} to GitHub {@code stargazers_count}.
+     * Deep-copy JSON renaming Forgejo count fields onto GitHub names the SDK expects.
      */
     static String aliasStarFields(String body) throws JSONException {
         String trimmed = body.trim();
@@ -768,6 +787,41 @@ public class ForgejoCompatInterceptor implements Interceptor {
         return body;
     }
 
+    private static String aliasKey(String key) {
+        if ("stars_count".equals(key)) {
+            return "stargazers_count";
+        }
+        // Forgejo's watchers_count is GitHub's subscribers_count (actual watchers).
+        if ("watchers_count".equals(key)) {
+            return "subscribers_count";
+        }
+        if ("is_locked".equals(key)) {
+            return "locked";
+        }
+        return key;
+    }
+
+    /**
+     * Convert Forgejo timestamps like {@code 2026-10-31T01:10:50+01:00} to the
+     * {@code yyyy-MM-dd'T'HH:mm:ss'Z'} form githubsdk's FormattedTimeAdapter accepts.
+     */
+    static String normalizeIso8601ToZulu(String value) {
+        if (value == null || value.length() < 20 || value.endsWith("Z")) {
+            return value;
+        }
+        // Cheap shape check: YYYY-MM-DDT...
+        if (value.charAt(4) != '-' || value.charAt(7) != '-' || value.charAt(10) != 'T') {
+            return value;
+        }
+        try {
+            return OffsetDateTime.parse(value)
+                    .toInstant()
+                    .toString(); // always ...Z
+        } catch (DateTimeParseException ignored) {
+            return value;
+        }
+    }
+
     private static JSONObject aliasInObject(JSONObject obj) throws JSONException {
         JSONObject out = new JSONObject();
         Iterator<String> keys = obj.keys();
@@ -777,18 +831,49 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
         for (String key : keyList) {
             Object value = obj.get(key);
-            String outKey = "stars_count".equals(key) ? "stargazers_count" : key;
+            String outKey = aliasKey(key);
             if (value instanceof JSONObject) {
                 out.put(outKey, aliasInObject((JSONObject) value));
             } else if (value instanceof JSONArray) {
                 out.put(outKey, aliasInArray((JSONArray) value));
+            } else if (value instanceof String) {
+                // githubsdk FormattedTimeAdapter only accepts ...Z, not +01:00 offsets.
+                out.put(outKey, normalizeIso8601ToZulu((String) value));
             } else {
                 out.put(outKey, value);
             }
         }
-        // Prefer existing stargazers_count if both somehow present
+        // Prefer canonical GitHub field names when both are present.
         if (obj.has("stargazers_count") && !obj.isNull("stargazers_count")) {
             out.put("stargazers_count", obj.get("stargazers_count"));
+        }
+        if (obj.has("subscribers_count") && !obj.isNull("subscribers_count")) {
+            out.put("subscribers_count", obj.get("subscribers_count"));
+        }
+        if (obj.has("locked") && !obj.isNull("locked")) {
+            out.put("locked", obj.get("locked"));
+        }
+        // Forgejo embeds repository.owner as a bare login string.
+        if (out.has("owner") && out.opt("owner") instanceof String) {
+            String login = out.optString("owner", "");
+            out.put("owner", new JSONObject().put("login", login));
+        }
+        // Nested commit objects from Forgejo omit comment_count.
+        if (out.has("message") && !out.has("comment_count")) {
+            out.put("comment_count", 0);
+        }
+        // Single-commit file entries often lack per-file stats.
+        if (out.has("filename")) {
+            if (!out.has("additions") || out.isNull("additions")) {
+                out.put("additions", 0);
+            }
+            if (!out.has("deletions") || out.isNull("deletions")) {
+                out.put("deletions", 0);
+            }
+            if (!out.has("changes") || out.isNull("changes")) {
+                out.put("changes",
+                        out.optInt("additions", 0) + out.optInt("deletions", 0));
+            }
         }
         return out;
     }

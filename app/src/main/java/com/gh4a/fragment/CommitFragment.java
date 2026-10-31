@@ -226,8 +226,8 @@ public class CommitFragment extends LoadingFragmentBase implements OnClickListen
                     continue;
             }
 
-            totalAdditions += file.additions();
-            totalDeletions += file.deletions();
+            totalAdditions += ApiHelpers.nullToZero(file.additions());
+            totalDeletions += ApiHelpers.nullToZero(file.deletions());
 
             View fileView = getLayoutInflater().inflate(R.layout.commit_filename, parent, false);
             TextView fileNameView = fileView.findViewById(R.id.filename);
@@ -251,6 +251,12 @@ public class CommitFragment extends LoadingFragmentBase implements OnClickListen
         adjustVisibility(R.id.card_renamed, renamedFiles);
         adjustVisibility(R.id.card_deleted, deletedFiles);
 
+        // Forgejo often omits per-file additions/deletions but still provides commit.stats.
+        if (totalAdditions == 0 && totalDeletions == 0 && mCommit.stats() != null) {
+            totalAdditions = ApiHelpers.nullToZero(mCommit.stats().additions());
+            totalDeletions = ApiHelpers.nullToZero(mCommit.stats().deletions());
+        }
+
         TextView tvSummary = mContentView.findViewById(R.id.tv_desc);
         tvSummary.setText(getString(R.string.commit_summary,
                 addedFiles + changedFiles + renamedFiles + deletedFiles,
@@ -271,12 +277,14 @@ public class CommitFragment extends LoadingFragmentBase implements OnClickListen
     private void fillFileStats(View fileView, GitHubFile file, ForegroundColorSpan additionsSpan,
             ForegroundColorSpan deletionsSpan) {
         TextView statsView = fileView.findViewById(R.id.stats);
-        if (file.additions() > 0 || file.deletions() > 0) {
+        int additions = ApiHelpers.nullToZero(file.additions());
+        int deletions = ApiHelpers.nullToZero(file.deletions());
+        if (additions > 0 || deletions > 0) {
             SpannableStringBuilder stats = new SpannableStringBuilder();
-            stats.append("+").append(String.valueOf(file.additions()));
+            stats.append("+").append(String.valueOf(additions));
             int addLength = stats.length();
             stats.setSpan(additionsSpan, 0, addLength, 0);
-            stats.append("\u00a0\u00a0\u00a0-").append(String.valueOf(file.deletions()));
+            stats.append("\u00a0\u00a0\u00a0-").append(String.valueOf(deletions));
             stats.setSpan(deletionsSpan, addLength, stats.length(), 0);
             statsView.setText(stats);
             statsView.setVisibility(View.VISIBLE);

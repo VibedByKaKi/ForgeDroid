@@ -363,7 +363,7 @@ public abstract class IssueFragmentBase extends ListDataBaseFragment<TimelineIte
     }
 
     private boolean isLocked() {
-        return mIssue.locked() && !mIsCollaborator;
+        return Boolean.TRUE.equals(mIssue.locked()) && !mIsCollaborator;
     }
 
     private void updateMentionUsers() {
