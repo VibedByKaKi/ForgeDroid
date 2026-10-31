@@ -39,6 +39,7 @@ import com.gh4a.utils.ActivityResultHelpers;
 import com.gh4a.utils.ApiHelpers;
 import com.gh4a.utils.AvatarHandler;
 import com.gh4a.utils.UiUtils;
+import com.google.android.material.navigation.NavigationView;
 import com.meisolsson.githubsdk.model.User;
 import com.meisolsson.githubsdk.service.activity.NotificationService;
 import com.meisolsson.githubsdk.service.users.UserService;
@@ -495,41 +496,59 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
     }
 
     private void updateDrawerMode(boolean accountMode) {
-        mLeftDrawerMenu.setGroupVisible(R.id.my_items, !accountMode);
-        mLeftDrawerMenu.setGroupVisible(R.id.navigation, !accountMode);
-        mLeftDrawerMenu.setGroupVisible(R.id.explore, !accountMode);
-        mLeftDrawerMenu.setGroupVisible(R.id.settings, !accountMode);
-        mLeftDrawerMenu.setGroupVisible(R.id.account, accountMode);
-        mLeftDrawerMenu.setGroupVisible(R.id.other_accounts, accountMode);
+        // Material NavigationView crashes (IndexOutOfBounds in
+        // NavigationMenuAdapter.getItemViewType) when TalkBack / UiAutomator
+        // prefetches a11y nodes while menu groups are being shown/hidden.
+        // Hide the drawer from a11y for the duration of the mutation.
+        final NavigationView leftDrawer = findViewById(R.id.left_drawer);
+        final int previousA11y = leftDrawer != null
+                ? leftDrawer.getImportantForAccessibility()
+                : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
+        if (leftDrawer != null) {
+            leftDrawer.setImportantForAccessibility(
+                    View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        }
+        try {
+            mLeftDrawerMenu.setGroupVisible(R.id.my_items, !accountMode);
+            mLeftDrawerMenu.setGroupVisible(R.id.navigation, !accountMode);
+            mLeftDrawerMenu.setGroupVisible(R.id.explore, !accountMode);
+            mLeftDrawerMenu.setGroupVisible(R.id.settings, !accountMode);
+            mLeftDrawerMenu.setGroupVisible(R.id.account, accountMode);
+            mLeftDrawerMenu.setGroupVisible(R.id.other_accounts, accountMode);
 
-        if (accountMode) {
-            // repopulate other account list
-            for (int i = 0; ; i++) {
-                MenuItem item = mLeftDrawerMenu.findItem(OTHER_ACCOUNTS_GROUP_BASE_ID + i);
-                if (item == null) {
-                    break;
+            if (accountMode) {
+                // repopulate other account list
+                for (int i = 0; ; i++) {
+                    MenuItem item = mLeftDrawerMenu.findItem(OTHER_ACCOUNTS_GROUP_BASE_ID + i);
+                    if (item == null) {
+                        break;
+                    }
+                    mLeftDrawerMenu.removeItem(item.getItemId());
                 }
-                mLeftDrawerMenu.removeItem(item.getItemId());
+
+                int id = OTHER_ACCOUNTS_GROUP_BASE_ID;
+                LongSparseArray<String> accounts = Gh4Application.get().getAccounts();
+                String activeKey = Gh4Application.get().getAuthAccountKey();
+                for (int i = 0; i < accounts.size(); i++) {
+                    String accountKey = accounts.valueAt(i);
+                    if (TextUtils.equals(activeKey, accountKey)) {
+                        continue;
+                    }
+
+                    MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, accountKey);
+                    AvatarHandler.assignAvatar(this, item,
+                            Gh4Application.extractLoginName(accountKey), accounts.keyAt(i));
+                }
             }
 
-            int id = OTHER_ACCOUNTS_GROUP_BASE_ID;
-            LongSparseArray<String> accounts = Gh4Application.get().getAccounts();
-            String activeKey = Gh4Application.get().getAuthAccountKey();
-            for (int i = 0; i < accounts.size(); i++) {
-                String accountKey = accounts.valueAt(i);
-                if (TextUtils.equals(activeKey, accountKey)) {
-                    continue;
-                }
-
-                MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, accountKey);
-                AvatarHandler.assignAvatar(this, item,
-                        Gh4Application.extractLoginName(accountKey), accounts.keyAt(i));
+            mDrawerSwitcher.setImageResource(accountMode
+                    ? R.drawable.drop_up_arrow_white : R.drawable.drop_down_arrow_white);
+            mDrawerInAccountMode = accountMode;
+        } finally {
+            if (leftDrawer != null) {
+                leftDrawer.post(() -> leftDrawer.setImportantForAccessibility(previousA11y));
             }
         }
-
-        mDrawerSwitcher.setImageResource(accountMode
-                ? R.drawable.drop_up_arrow_white : R.drawable.drop_down_arrow_white);
-        mDrawerInAccountMode = accountMode;
     }
 
     private void switchTo(int itemId, FragmentFactory factory) {
