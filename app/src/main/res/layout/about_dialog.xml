@@ -13,15 +13,16 @@
         android:textAppearance="?android:attr/textAppearanceMedium" />
 
     <com.gh4a.widget.LinkHandlingTextView
+        android:id="@+id/upstream_credit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:autoLink="email"
-        android:text="@string/my_email"
+        android:paddingTop="8dp"
         android:textAppearance="?android:attr/textAppearanceMedium" />
 
     <com.gh4a.widget.LinkHandlingTextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingTop="8dp"
         android:autoLink="web"
         android:text="@string/my_web"
         android:textAppearance="?android:attr/textAppearanceMedium" />
@@ -29,14 +30,8 @@
     <com.gh4a.widget.LinkHandlingTextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingTop="8dp"
         android:text="@string/feedback_text"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
-
-    <Button
-        android:id="@+id/btn_by_email"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/feedback_by_email"
         android:textAppearance="?android:attr/textAppearanceMedium" />
 
     <Button

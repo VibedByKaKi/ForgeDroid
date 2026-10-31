@@ -8,17 +8,28 @@
     android:padding="@dimen/content_padding">
 
     <TextView
+        android:id="@+id/instance_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="8dp"
+        android:paddingBottom="4dp"
         android:text="@string/login_instance_label"
-        android:textAppearance="?attr/textAppearanceBodyMedium" />
+        android:textColor="?android:attr/textColorPrimary" />
 
-    <Spinner
-        android:id="@+id/instance_spinner"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/instance_wrapper"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="48dp" />
+        app:hintEnabled="false">
+
+        <AutoCompleteTextView
+            android:id="@+id/instance_dropdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:importantForAutofill="no" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/custom_url_wrapper"
@@ -26,6 +37,7 @@
         android:layout_height="wrap_content"
         android:visibility="gone"
         android:hint="@string/login_custom_url_hint"
+        android:paddingTop="8dp"
         tools:visibility="visible">
 
         <com.google.android.material.textfield.TextInputEditText

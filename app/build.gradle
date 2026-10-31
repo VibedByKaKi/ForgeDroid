@@ -13,7 +13,7 @@ android {
         targetSdkVersion 33
         versionCode 78
         versionName "4.6.15"
-        applicationId "com.gh4a"
+        applicationId "com.vibedbykaki.forgedroid"
         resourceConfigurations += ['en']
     }
 

@@ -6,8 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.DialogFragment;
 import androidx.appcompat.app.AlertDialog;
@@ -23,10 +26,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import com.gh4a.Gh4Application;
 import com.gh4a.R;
-import com.gh4a.activities.IssueListActivity;
-import com.gh4a.activities.RepositoryActivity;
 import com.gh4a.worker.NotificationsWorker;
 import com.gh4a.widget.IntegerListPreference;
 
@@ -119,8 +119,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements
     @Override
     public boolean onPreferenceClick(Preference pref) {
         if (pref == mAboutPref) {
-            boolean loggedIn = Gh4Application.get().isAuthorized();
-            AboutDialogFragment.newInstance(getAppName(), loggedIn)
+            AboutDialogFragment.newInstance(getAppName())
                     .show(getChildFragmentManager(), "about");
             return true;
         } else if (pref == mOpenSourcePref) {
@@ -148,11 +147,10 @@ public class SettingsFragment extends PreferenceFragmentCompat implements
     }
 
     public static class AboutDialogFragment extends DialogFragment {
-        public static AboutDialogFragment newInstance(String title, boolean loggedIn) {
+        public static AboutDialogFragment newInstance(String title) {
             AboutDialogFragment f = new AboutDialogFragment();
             Bundle args = new Bundle();
             args.putString("title", title);
-            args.putBoolean("loggedIn", loggedIn);
             f.setArguments(args);
             return f;
         }
@@ -161,13 +159,12 @@ public class SettingsFragment extends PreferenceFragmentCompat implements
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
             String title = getArguments().getString("title");
-            boolean loggedIn = getArguments().getBoolean("loggedIn");
-            return new AboutDialog(getContext(), title, loggedIn);
+            return new AboutDialog(getContext(), title);
         }
     }
 
     private static class AboutDialog extends AppCompatDialog implements View.OnClickListener {
-        public AboutDialog(Context context, String title, boolean loggedIn) {
+        public AboutDialog(Context context, String title) {
             super(context);
 
             setContentView(R.layout.about_dialog);
@@ -176,15 +173,15 @@ public class SettingsFragment extends PreferenceFragmentCompat implements
             TextView tvCopyright = findViewById(R.id.copyright);
             tvCopyright.setText(R.string.copyright_notice);
 
-            findViewById(R.id.btn_by_email).setOnClickListener(this);
+            TextView tvUpstream = findViewById(R.id.upstream_credit);
+            CharSequence credit = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    ? Html.fromHtml(context.getString(R.string.upstream_credit),
+                            Html.FROM_HTML_MODE_LEGACY)
+                    : Html.fromHtml(context.getString(R.string.upstream_credit));
+            tvUpstream.setText(credit);
+            tvUpstream.setMovementMethod(LinkMovementMethod.getInstance());
 
-            View newIssueButton = findViewById(R.id.btn_by_gh4a);
-            if (loggedIn) {
-                newIssueButton.setOnClickListener(this);
-            } else {
-                newIssueButton.setVisibility(View.GONE);
-            }
-
+            findViewById(R.id.btn_by_gh4a).setOnClickListener(this);
             findViewById(R.id.btn_gh4a).setOnClickListener(this);
         }
 
@@ -192,28 +189,15 @@ public class SettingsFragment extends PreferenceFragmentCompat implements
         public void onClick(View view) {
             Context context = getContext();
             int id = view.getId();
-
-            if (id == R.id.btn_by_email) {
-                Intent sendIntent = new Intent(Intent.ACTION_SEND);
-                sendIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{
-                        context.getString(R.string.my_email)
-                });
-                sendIntent.setType("message/rfc822");
-
-                Intent chooserIntent = Intent.createChooser(sendIntent,
-                        context.getString(R.string.send_email_title));
-                context.startActivity(chooserIntent);
-            } else if (id == R.id.btn_by_gh4a) {
-                Intent intent = IssueListActivity.makeIntent(context,
-                        context.getString(R.string.my_username),
-                        context.getString(R.string.my_repo));
-                context.startActivity(intent);
+            final Uri uri;
+            if (id == R.id.btn_by_gh4a) {
+                uri = Uri.parse(context.getString(R.string.my_issues_url));
             } else if (id == R.id.btn_gh4a) {
-                Intent intent = RepositoryActivity.makeIntent(context,
-                        context.getString(R.string.my_username),
-                        context.getString(R.string.my_repo));
-                context.startActivity(intent);
+                uri = Uri.parse(context.getString(R.string.my_web));
+            } else {
+                return;
             }
+            context.startActivity(new Intent(Intent.ACTION_VIEW, uri));
         }
     }
 

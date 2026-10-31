@@ -13,6 +13,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,10 +23,10 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.ProgressBar;
-import android.widget.Spinner;
+import android.widget.TextView;
 
 import com.gh4a.Gh4Application;
 import com.gh4a.R;
@@ -52,8 +53,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class LoginModeChooserFragment extends DialogFragment implements
-        AdapterView.OnItemSelectedListener {
+public class LoginModeChooserFragment extends DialogFragment {
     public interface ParentCallback {
         void onLoginFinished(String token, User user, String instanceBaseUrl);
         void onLoginFailed(Throwable error);
@@ -78,12 +78,14 @@ public class LoginModeChooserFragment extends DialogFragment implements
     }
 
     private ParentCallback mCallback;
-    private Spinner mInstanceSpinner;
+    private TextView mInstanceLabel;
+    private AutoCompleteTextView mInstanceDropdown;
     private TextInputLayout mCustomUrlWrapper;
     private TextInputEditText mCustomUrl;
     private TextInputEditText mTokenName;
     private WebView mWebView;
     private ProgressBar mProgress;
+    private String mSelectedInstanceLabel;
 
     private boolean mLoginInProgress;
     private boolean mCheckingSession;
@@ -108,7 +110,10 @@ public class LoginModeChooserFragment extends DialogFragment implements
         LayoutInflater inflater = LayoutInflater.from(getActivity());
         View view = inflater.inflate(R.layout.login_dialog, null);
 
-        mInstanceSpinner = view.findViewById(R.id.instance_spinner);
+        mInstanceLabel = view.findViewById(R.id.instance_label);
+        applyInstanceLabelSize();
+
+        mInstanceDropdown = view.findViewById(R.id.instance_dropdown);
         mCustomUrlWrapper = view.findViewById(R.id.custom_url_wrapper);
         mCustomUrl = view.findViewById(R.id.custom_url);
         mTokenName = view.findViewById(R.id.token_name);
@@ -118,9 +123,17 @@ public class LoginModeChooserFragment extends DialogFragment implements
         String[] labels = new String[PRESET_HOSTS.length + 1];
         System.arraycopy(PRESET_HOSTS, 0, labels, 0, PRESET_HOSTS.length);
         labels[PRESET_HOSTS.length] = CUSTOM_LABEL;
-        mInstanceSpinner.setAdapter(new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_spinner_dropdown_item, labels));
-        mInstanceSpinner.setOnItemSelectedListener(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_dropdown_item_1line, labels);
+        mInstanceDropdown.setAdapter(adapter);
+        mSelectedInstanceLabel = PRESET_HOSTS[0];
+        mInstanceDropdown.setText(mSelectedInstanceLabel, false);
+        mInstanceDropdown.setOnItemClickListener((parent, itemView, position, id) -> {
+            mSelectedInstanceLabel = labels[position];
+            boolean custom = isCustomSelected();
+            mCustomUrlWrapper.setVisibility(custom ? View.VISIBLE : View.GONE);
+            reloadWebViewIfReady();
+        });
 
         mCustomUrl.addTextChangedListener(new SimpleWatcher() {
             @Override
@@ -168,6 +181,7 @@ public class LoginModeChooserFragment extends DialogFragment implements
                 .create();
 
         dialog.setOnShowListener(d -> {
+            applyInstanceLabelSize();
             Window window = dialog.getWindow();
             if (window != null && getActivity() != null) {
                 DisplayMetrics metrics = new DisplayMetrics();
@@ -184,9 +198,17 @@ public class LoginModeChooserFragment extends DialogFragment implements
         return dialog;
     }
 
+    private void applyInstanceLabelSize() {
+        if (mInstanceLabel != null) {
+            // AlertDialog themes re-apply a small text appearance after inflate.
+            mInstanceLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        }
+    }
+
     @Override
     public void onStart() {
         super.onStart();
+        applyInstanceLabelSize();
         Dialog dialog = getDialog();
         if (dialog != null && dialog.getWindow() != null) {
             dialog.getWindow().setLayout(
@@ -213,20 +235,8 @@ public class LoginModeChooserFragment extends DialogFragment implements
         mCallback.onLoginCanceled();
     }
 
-    @Override
-    public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        boolean custom = isCustomSelected();
-        mCustomUrlWrapper.setVisibility(custom ? View.VISIBLE : View.GONE);
-        reloadWebViewIfReady();
-    }
-
-    @Override
-    public void onNothingSelected(AdapterView<?> parent) {
-    }
-
     private boolean isCustomSelected() {
-        Object selected = mInstanceSpinner.getSelectedItem();
-        return CUSTOM_LABEL.equals(selected);
+        return CUSTOM_LABEL.equals(mSelectedInstanceLabel);
     }
 
     private String resolveInstanceBaseUrl() {
@@ -241,8 +251,10 @@ public class LoginModeChooserFragment extends DialogFragment implements
             }
             return Gh4Application.normalizeInstanceUrl(raw);
         }
-        String host = (String) mInstanceSpinner.getSelectedItem();
-        return "https://" + host;
+        if (TextUtils.isEmpty(mSelectedInstanceLabel)) {
+            return null;
+        }
+        return "https://" + mSelectedInstanceLabel;
     }
 
     private String getTokenName() {
@@ -399,7 +411,7 @@ public class LoginModeChooserFragment extends DialogFragment implements
         if (mWebView != null) {
             mWebView.setVisibility(busy ? View.INVISIBLE : View.VISIBLE);
         }
-        mInstanceSpinner.setEnabled(!busy);
+        mInstanceDropdown.setEnabled(!busy);
         mCustomUrl.setEnabled(!busy);
         mTokenName.setEnabled(!busy);
     }

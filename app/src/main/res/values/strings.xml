@@ -33,14 +33,14 @@
     <string name="my_profile">My profile</string>
     <string name="user_context">Account</string>
     <string name="add_account">Add account</string>
-    <string name="my_email">slapperwan@gmail.com</string>
-    <string name="my_web">http://slapperwan.github.com/gh4a</string>
-    <string name="my_username">slapperwan</string>
-    <string name="my_repo">gh4a</string>
+    <string name="my_web">https://github.com/VibedByKaKi/ForgeDroid</string>
+    <string name="my_issues_url">https://github.com/VibedByKaKi/ForgeDroid/issues</string>
+    <string name="my_username">VibedByKaKi</string>
+    <string name="my_repo">ForgeDroid</string>
     <string name="source_code">Source Code</string>
-    <string name="feedback_text">If you have any issues or suggestions, please contact me.  Any kind of feedback is greatly appreciated.</string>
-    <string name="feedback_by_email">By Email</string>
-    <string name="feedback_by_gh4a">By OctoDroid</string>
+    <string name="feedback_text">If you have any issues or suggestions, please open an issue on GitHub. Any kind of feedback is greatly appreciated.</string>
+    <string name="feedback_by_gh4a">Report an issue</string>
+    <string name="upstream_credit">Based on <a href="https://github.com/slapperwan/gh4a">OctoDroid</a> by Azwan Adli, Danny Baumann and contributors.</string>
     <string name="bookmarks">Bookmarks</string>
     <string name="bookmarks_and_stars">Bookmarks and Stars</string>
     <string name="other_info">Other Information</string>
@@ -119,7 +119,7 @@
     <string name="download_permission_rationale">Permission to write to USB storage or SD card is required in order to download files.</string>
     <string name="load_auth_failure_notice">Your authentication credentials aren\'t valid anymore, please log in again.</string>
     <string name="unset">Unset</string>
-    <string name="copyright_notice">\u00a9 2014 Azwan Adli, Danny Baumann</string>
+    <string name="copyright_notice">ForgeDroid — a Forgejo client based on OctoDroid.\n\u00a9 2014 Azwan Adli, Danny Baumann and OctoDroid contributors.</string>
     <string name="actions">Actions</string>
     <string name="created">Created</string>
     <string name="assigned">Assigned</string>
