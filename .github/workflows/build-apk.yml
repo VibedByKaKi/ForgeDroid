@@ -25,8 +25,40 @@ jobs:
           java-version: 21
           cache: gradle
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Prepare release signing keystore
+        env:
+          SOUL_KEYSTORE_BASE64: ${{ secrets.SOUL_KEYSTORE_BASE64 }}
+          SOUL_KEY_ALIAS: ${{ secrets.SOUL_KEY_ALIAS }}
+          SOUL_KEYSTORE_PASSWORD: ${{ secrets.SOUL_KEYSTORE_PASSWORD }}
+          SOUL_KEY_PASSWORD: ${{ secrets.SOUL_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SOUL_KEYSTORE_BASE64}" ]]; then
+            echo "Missing repository secret SOUL_KEYSTORE_BASE64 (base64-encoded PKCS12/JKS)." >&2
+            exit 1
+          fi
+          if [[ -z "${SOUL_KEYSTORE_PASSWORD}" || -z "${SOUL_KEY_PASSWORD}" ]]; then
+            echo "Missing SOUL_KEYSTORE_PASSWORD / SOUL_KEY_PASSWORD secrets." >&2
+            exit 1
+          fi
+          mkdir -p keystore
+          # Avoid echoing secret material; write decoded bytes only.
+          printf '%s' "${SOUL_KEYSTORE_BASE64}" | base64 -d > keystore/release.keystore
+          chmod 600 keystore/release.keystore
+
+          ALIAS="${SOUL_KEY_ALIAS:-soulbrowser}"
+          # app/build.gradle loads signing.properties from the project root.
+          # Use an absolute STORE_FILE so Gradle's file() resolves correctly.
+          {
+            printf 'STORE_FILE=%s\n' "${GITHUB_WORKSPACE}/keystore/release.keystore"
+            printf 'STORE_PASSWORD=%s\n' "${SOUL_KEYSTORE_PASSWORD}"
+            printf 'KEY_ALIAS=%s\n' "${ALIAS}"
+            printf 'KEY_PASSWORD=%s\n' "${SOUL_KEY_PASSWORD}"
+          } > signing.properties
+          chmod 600 signing.properties
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -35,8 +67,8 @@ jobs:
         id: prepare
         run: |
           BUILD_NUMBER="${{ github.run_number }}"
-          SRC="$(ls app/build/outputs/apk/debug/*.apk | head -n 1)"
-          DEST="ForgeDroid-debug-${BUILD_NUMBER}.apk"
+          SRC="$(ls app/build/outputs/apk/release/*.apk | head -n 1)"
+          DEST="ForgeDroid-release-${BUILD_NUMBER}.apk"
           cp "$SRC" "$DEST"
           echo "apk_filename=${DEST}" >> "$GITHUB_OUTPUT"
 
@@ -47,3 +79,8 @@ jobs:
           path: ${{ steps.prepare.outputs.apk_filename }}
           archive: false
           retention-days: 14
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          rm -f keystore/release.keystore signing.properties

@@ -7,6 +7,9 @@ build
 client.properties
 local.properties
 signing.properties
+keystore/
+*.jks
+*.keystore
 *.iml
 
 # Crashlytics generated files
