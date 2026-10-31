@@ -10,9 +10,11 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +36,7 @@ import okhttp3.ResponseBody;
  *   <li>{@code per_page} → {@code limit}</li>
  *   <li>GitHub event endpoints → {@code /activities/feeds}, remapped to GitHub event JSON</li>
  *   <li>Single-commit {@code /commits/{sha}} → {@code /git/commits/{sha}}</li>
+ *   <li>Missing per-file {@code patch} on commits/PR files → fill from {@code .diff}</li>
  *   <li>Missing commit-comments API → empty list</li>
  *   <li>ISO-8601 offsets → {@code ...Z} for githubsdk FormattedTimeAdapter</li>
  *   <li>Synthetic {@code Link} pagination from {@code X-Total-Count}</li>
@@ -80,8 +83,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/(gists|users/[^/]+/gists)(/.*)?$");
     private static final Pattern SINGLE_COMMIT =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)$");
+    private static final Pattern FORGEJO_GIT_COMMIT =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/git/commits/([^/]+)$");
     private static final Pattern COMMIT_COMMENTS =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/commits/([^/]+)/comments$");
+    private static final Pattern PULL_FILES =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/files$");
     // GitHub lists PR review comments at /pulls/{n}/comments; Forgejo 404s that path.
     private static final Pattern PULL_REVIEW_COMMENTS =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/comments$");
@@ -231,6 +238,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 }
             }
             rewritten = aliasStarFields(rewritten);
+            if (response.isSuccessful()) {
+                rewritten = maybeEnrichFilePatches(chain, request, path, rewritten);
+            }
 
             Response.Builder builder = response.newBuilder()
                     .body(ResponseBody.create(contentType != null ? contentType : JSON, rewritten));
@@ -256,6 +266,205 @@ public class ForgejoCompatInterceptor implements Interceptor {
             return response.newBuilder()
                     .body(ResponseBody.create(contentType != null ? contentType : JSON, bodyString))
                     .build();
+        }
+    }
+
+    /**
+     * Forgejo's commit and PR file JSON lists filenames/status but omit GitHub's
+     * {@code patch} field. Without it, OctoDroid leaves file rows non-clickable.
+     * Fill patches (and missing add/del counts) from the matching {@code .diff}.
+     */
+    private static String maybeEnrichFilePatches(Chain chain, Request request, String path,
+            String body) throws IOException, JSONException {
+        Matcher commit = FORGEJO_GIT_COMMIT.matcher(path);
+        Matcher pullFiles = PULL_FILES.matcher(path);
+        final String diffPath;
+        final JSONArray files;
+        final JSONObject commitObj;
+        if (commit.matches()) {
+            JSONObject obj = new JSONObject(body);
+            files = obj.optJSONArray("files");
+            if (files == null || files.length() == 0 || !filesNeedPatches(files)) {
+                return body;
+            }
+            diffPath = path + ".diff";
+            commitObj = obj;
+        } else if (pullFiles.matches()) {
+            String trimmed = body.trim();
+            if (!trimmed.startsWith("[")) {
+                return body;
+            }
+            files = new JSONArray(body);
+            if (files.length() == 0 || !filesNeedPatches(files)) {
+                return body;
+            }
+            diffPath = "/api/v1/repos/" + pullFiles.group(1) + "/" + pullFiles.group(2)
+                    + "/pulls/" + pullFiles.group(3) + ".diff";
+            commitObj = null;
+        } else {
+            return body;
+        }
+
+        String diffText = fetchPlainText(chain, request, diffPath);
+        if (diffText == null || diffText.isEmpty()) {
+            return body;
+        }
+        Map<String, ParsedFilePatch> patches = parseUnifiedDiffPatches(diffText);
+        if (patches.isEmpty()) {
+            return body;
+        }
+        applyParsedPatches(files, patches);
+        if (commitObj != null) {
+            commitObj.put("files", files);
+            return commitObj.toString();
+        }
+        return files.toString();
+    }
+
+    private static boolean filesNeedPatches(JSONArray files) throws JSONException {
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject file = files.optJSONObject(i);
+            if (file == null) {
+                continue;
+            }
+            String patch = file.optString("patch", "");
+            if (patch.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void applyParsedPatches(JSONArray files, Map<String, ParsedFilePatch> patches)
+            throws JSONException {
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject file = files.optJSONObject(i);
+            if (file == null) {
+                continue;
+            }
+            String name = file.optString("filename", "");
+            ParsedFilePatch parsed = patches.get(name);
+            if (parsed == null && file.has("previous_filename")) {
+                parsed = patches.get(file.optString("previous_filename", ""));
+            }
+            if (parsed == null) {
+                continue;
+            }
+            boolean filledPatch = false;
+            if (file.optString("patch", "").isEmpty()) {
+                file.put("patch", parsed.patch);
+                filledPatch = true;
+            }
+            // Commit file entries usually lack counts; PR files often already have them.
+            if (file.optInt("additions", 0) == 0 && file.optInt("deletions", 0) == 0) {
+                file.put("additions", parsed.additions);
+                file.put("deletions", parsed.deletions);
+            }
+            int additions = file.optInt("additions", 0);
+            int deletions = file.optInt("deletions", 0);
+            if (file.optInt("changes", 0) == 0) {
+                file.put("changes", additions + deletions);
+            }
+            if (filledPatch && Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Filled patch for " + name + " (+" + additions + "/-" + deletions + ")");
+            }
+        }
+    }
+
+    private static final class ParsedFilePatch {
+        final String patch;
+        final int additions;
+        final int deletions;
+
+        ParsedFilePatch(String patch, int additions, int deletions) {
+            this.patch = patch;
+            this.additions = additions;
+            this.deletions = deletions;
+        }
+    }
+
+    /**
+     * Split a unified diff into GitHub-style per-file {@code patch} blobs (hunks only).
+     */
+    static Map<String, ParsedFilePatch> parseUnifiedDiffPatches(String diffText) {
+        Map<String, ParsedFilePatch> out = new HashMap<>();
+        String[] lines = diffText.split("\n", -1);
+        String currentPath = null;
+        StringBuilder hunks = null;
+        int additions = 0;
+        int deletions = 0;
+        boolean inHunks = false;
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.startsWith("diff --git ")) {
+                finishParsedPatch(out, currentPath, hunks, additions, deletions);
+                currentPath = null;
+                hunks = new StringBuilder();
+                additions = 0;
+                deletions = 0;
+                inHunks = false;
+                // Prefer the b/ path: "diff --git a/foo b/foo"
+                int bIdx = line.lastIndexOf(" b/");
+                if (bIdx >= 0) {
+                    currentPath = line.substring(bIdx + 3);
+                }
+                continue;
+            }
+            if (currentPath == null) {
+                continue;
+            }
+            if (!inHunks && line.startsWith("+++ ")) {
+                String plus = line.substring(4).trim();
+                if (plus.startsWith("b/")) {
+                    currentPath = plus.substring(2);
+                } else if (!"/dev/null".equals(plus)) {
+                    currentPath = plus;
+                }
+                continue;
+            }
+            if (line.startsWith("@@")) {
+                inHunks = true;
+            }
+            if (!inHunks) {
+                continue;
+            }
+            if (hunks.length() > 0) {
+                hunks.append('\n');
+            }
+            hunks.append(line);
+            if (line.startsWith("+") && !line.startsWith("+++")) {
+                additions++;
+            } else if (line.startsWith("-") && !line.startsWith("---")) {
+                deletions++;
+            }
+        }
+        finishParsedPatch(out, currentPath, hunks, additions, deletions);
+        return out;
+    }
+
+    private static void finishParsedPatch(Map<String, ParsedFilePatch> out, String path,
+            StringBuilder hunks, int additions, int deletions) {
+        if (path == null || hunks == null || hunks.length() == 0) {
+            return;
+        }
+        out.put(path, new ParsedFilePatch(hunks.toString(), additions, deletions));
+    }
+
+    private static String fetchPlainText(Chain chain, Request template, String encodedPath)
+            throws IOException {
+        HttpUrl url = template.url().newBuilder()
+                .encodedPath(encodedPath)
+                .query(null)
+                .build();
+        Response resp = chain.proceed(template.newBuilder().url(url).get().build());
+        try {
+            if (!resp.isSuccessful() || resp.body() == null) {
+                return null;
+            }
+            return resp.body().string();
+        } finally {
+            resp.close();
         }
     }
 
