@@ -66,6 +66,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
     // Exact user profile (not /users/{login}/repos etc.).
     private static final Pattern SINGLE_USER =
             Pattern.compile("^/api/v1/users/([^/]+)$");
+    private static final Pattern MY_REPOS =
+            Pattern.compile("^/api/v1/user/repos$");
+    private static final Pattern USER_REPOS_LIST =
+            Pattern.compile("^/api/v1/users/([^/]+)/repos$");
+    private static final Pattern ORG_REPOS_LIST =
+            Pattern.compile("^/api/v1/orgs/([^/]+)/repos$");
     private static final Pattern SEARCH_CODE =
             Pattern.compile("^/api/v1/search/code$");
     private static final Pattern WIKI_PAGES =
@@ -100,6 +106,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
         ACTIVITY_FEED,
         ISSUE_SEARCH_ARRAY,
         REPO_SEARCH_OBJECT,
+        /** {@code /repos/search} → bare array for GitHub list-repos pagination. */
+        REPO_LIST_SEARCH_OBJECT,
         USER_SEARCH_OBJECT,
         ISSUE_TIMELINE,
         JSON_ALIAS_ONLY
@@ -142,8 +150,18 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 return orgUser;
             }
         }
-
-        Request request = rewriteRequest(original);
+        Request request;
+        Matcher userRepos = USER_REPOS_LIST.matcher(originalPath);
+        Matcher orgRepos = ORG_REPOS_LIST.matcher(originalPath);
+        if ((userRepos.matches() || orgRepos.matches())
+                && "GET".equalsIgnoreCase(original.method())) {
+            // /users|orgs/{name}/repos ignores GitHub sort; use /repos/search with uid.
+            request = rewriteForeignRepoListRequest(chain, original,
+                    userRepos.matches() ? userRepos.group(1) : orgRepos.group(1),
+                    orgRepos.matches());
+        } else {
+            request = rewriteRequest(original);
+        }
         Matcher readmeMatcher = REPO_README.matcher(original.url().encodedPath());
         if (readmeMatcher.matches()) {
             return synthesizeReadmeResponse(chain, request, readmeMatcher.group(1),
@@ -174,6 +192,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 bodyString = "[]";
             }
 
+            String totalCountHeader = response.header("X-Total-Count");
             String rewritten = bodyString;
             if (response.isSuccessful()) {
                 switch (mode) {
@@ -181,12 +200,24 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         rewritten = convertActivityFeedsToEvents(bodyString);
                         break;
                     case ISSUE_SEARCH_ARRAY:
-                        rewritten = wrapArrayAsSearchPage(bodyString,
-                                response.header("X-Total-Count"));
+                        rewritten = wrapArrayAsSearchPage(bodyString, totalCountHeader);
                         break;
                     case REPO_SEARCH_OBJECT:
                         rewritten = convertRepoSearchToSearchPage(bodyString);
                         break;
+                    case REPO_LIST_SEARCH_OBJECT: {
+                        JSONObject obj = new JSONObject(bodyString);
+                        JSONArray data = obj.optJSONArray("data");
+                        if (data == null) {
+                            data = new JSONArray();
+                        }
+                        if (totalCountHeader == null && obj.has("total_count")) {
+                            totalCountHeader = String.valueOf(
+                                    obj.optLong("total_count", data.length()));
+                        }
+                        rewritten = data.toString();
+                        break;
+                    }
                     case USER_SEARCH_OBJECT:
                         rewritten = convertUserSearchToSearchPage(bodyString);
                         rewritten = maybeAugmentUserSearchWithExactMatch(
@@ -203,13 +234,17 @@ public class ForgejoCompatInterceptor implements Interceptor {
 
             Response.Builder builder = response.newBuilder()
                     .body(ResponseBody.create(contentType != null ? contentType : JSON, rewritten));
+            if (totalCountHeader != null && response.header("X-Total-Count") == null) {
+                builder.header("X-Total-Count", totalCountHeader);
+            }
 
             if (response.isSuccessful() && response.header("Link") == null
                     && (mode == BodyMode.ACTIVITY_FEED
                     || mode == BodyMode.ISSUE_SEARCH_ARRAY
                     || mode == BodyMode.REPO_SEARCH_OBJECT
+                    || mode == BodyMode.REPO_LIST_SEARCH_OBJECT
                     || mode == BodyMode.USER_SEARCH_OBJECT)) {
-                String link = buildLinkHeader(request.url(), response.header("X-Total-Count"),
+                String link = buildLinkHeader(request.url(), totalCountHeader,
                         extractItemsArray(rewritten));
                 if (link != null) {
                     builder.header("Link", link);
@@ -457,6 +492,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 || rewrittenPath.contains("/repos/issues/search")) {
             return BodyMode.ISSUE_SEARCH_ARRAY;
         }
+        // User/org repo lists rewritten to /repos/search need a bare array, not SearchPage.
+        if ((USER_REPOS_LIST.matcher(originalPath).matches()
+                || ORG_REPOS_LIST.matcher(originalPath).matches())
+                && rewrittenPath.equals("/api/v1/repos/search")) {
+            return BodyMode.REPO_LIST_SEARCH_OBJECT;
+        }
         if (SEARCH_REPOS.matcher(originalPath).matches()
                 || rewrittenPath.equals("/api/v1/repos/search")) {
             return BodyMode.REPO_SEARCH_OBJECT;
@@ -524,14 +565,16 @@ public class ForgejoCompatInterceptor implements Interceptor {
         } else if ((m = ORG_EVENTS.matcher(path)).matches()) {
             urlBuilder.encodedPath("/api/v1/orgs/" + m.group(1) + "/activities/feeds");
             changed = true;
+        } else if (MY_REPOS.matcher(path).matches()) {
+            // GitHub sort=pushed|updated|created|full_name + direction → Forgejo order_by.
+            applyMyReposOrderBy(url, urlBuilder);
+            changed = true;
         } else if (SEARCH_ISSUES.matcher(path).matches()) {
             rewriteIssueSearch(url, urlBuilder);
             changed = true;
         } else if (SEARCH_REPOS.matcher(path).matches()) {
             urlBuilder.encodedPath("/api/v1/repos/search");
-            // drop GitHub-only sort/order if Forgejo rejects them; keep q/page/limit
-            urlBuilder.removeAllQueryParameters("sort");
-            urlBuilder.removeAllQueryParameters("order");
+            applyRepoSearchSort(url, urlBuilder);
             String q = url.queryParameter("q");
             if (q != null) {
                 // OctoDroid appends "fork:true"; Forgejo treats unknown qualifiers as text.
@@ -547,6 +590,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
             changed = true;
         } else if (SEARCH_USERS.matcher(path).matches()) {
             urlBuilder.encodedPath("/api/v1/users/search");
+            // Forgejo users/search has no GitHub-compatible sort.
             urlBuilder.removeAllQueryParameters("sort");
             urlBuilder.removeAllQueryParameters("order");
             if (url.queryParameter("limit") == null) {
@@ -575,9 +619,15 @@ public class ForgejoCompatInterceptor implements Interceptor {
      */
     private static void rewriteIssueSearch(HttpUrl url, HttpUrl.Builder urlBuilder) {
         String q = url.queryParameter("q");
+        String ghSort = url.queryParameter("sort");
+        String ghOrder = url.queryParameter("order");
+        if (ghOrder == null) {
+            ghOrder = url.queryParameter("direction");
+        }
         urlBuilder.removeAllQueryParameters("q");
         urlBuilder.removeAllQueryParameters("sort");
         urlBuilder.removeAllQueryParameters("order");
+        urlBuilder.removeAllQueryParameters("direction");
         urlBuilder.removeAllQueryParameters("created");
         urlBuilder.removeAllQueryParameters("assigned");
         urlBuilder.removeAllQueryParameters("mentioned");
@@ -644,6 +694,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
 
+        String forgejoSort = mapGithubIssueSort(ghSort, ghOrder);
         if (owner != null && repo != null) {
             // Per-repo list: Forgejo search owner/repo params do not scope to one repo.
             urlBuilder.encodedPath("/api/v1/repos/" + owner + "/" + repo + "/issues");
@@ -658,6 +709,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
             if (leftover.length() > 0) {
                 urlBuilder.setQueryParameter("q", leftover.toString());
             }
+            if (forgejoSort != null) {
+                urlBuilder.setQueryParameter("sort", forgejoSort);
+            }
         } else {
             urlBuilder.encodedPath("/api/v1/repos/issues/search");
             urlBuilder.setQueryParameter("type", type);
@@ -668,10 +722,150 @@ public class ForgejoCompatInterceptor implements Interceptor {
             if (leftover.length() > 0) {
                 urlBuilder.setQueryParameter("q", leftover.toString());
             }
+            // Cross-repo search sort support is spotty; still pass Forgejo enums when known.
+            if (forgejoSort != null) {
+                urlBuilder.setQueryParameter("sort", forgejoSort);
+            }
         }
         if (url.queryParameter("limit") == null && url.queryParameter("per_page") == null) {
             urlBuilder.setQueryParameter("limit", "30");
         }
+    }
+
+    /**
+     * GitHub issue search uses {@code sort=created|updated|comments} + {@code order/direction}.
+     * Forgejo wants a single {@code sort} enum: newest, oldest, recentupdate, …
+     */
+    private static String mapGithubIssueSort(String sort, String order) {
+        boolean asc = "asc".equalsIgnoreCase(order);
+        if (sort == null || sort.isEmpty() || "created".equals(sort)) {
+            return asc ? "oldest" : "newest";
+        }
+        if ("updated".equals(sort)) {
+            return asc ? "leastupdate" : "recentupdate";
+        }
+        if ("comments".equals(sort)) {
+            return asc ? "leastcomment" : "mostcomment";
+        }
+        return null;
+    }
+
+    /**
+     * Map GitHub {@code /user/repos?sort=&direction=} onto Forgejo {@code order_by}.
+     * Forgejo ignores GitHub's sort/direction and otherwise returns an arbitrary default.
+     */
+    private static void applyMyReposOrderBy(HttpUrl url, HttpUrl.Builder urlBuilder) {
+        String sort = url.queryParameter("sort");
+        String direction = url.queryParameter("direction");
+        urlBuilder.removeAllQueryParameters("sort");
+        urlBuilder.removeAllQueryParameters("direction");
+        urlBuilder.removeAllQueryParameters("order_by");
+        String orderBy = mapGithubRepoSortToOrderBy(sort, direction);
+        if (orderBy != null) {
+            urlBuilder.setQueryParameter("order_by", orderBy);
+        }
+    }
+
+    private static String mapGithubRepoSortToOrderBy(String sort, String direction) {
+        boolean asc = "asc".equalsIgnoreCase(direction);
+        if (sort == null || sort.isEmpty()) {
+            return asc ? "alphabetically" : "reversealphabetically";
+        }
+        switch (sort) {
+            case "full_name":
+                return asc ? "alphabetically" : "reversealphabetically";
+            case "created":
+                return asc ? "oldest" : "newest";
+            case "pushed":
+            case "updated":
+                // Forgejo has no separate pushed_at; updated_unix tracks pushes.
+                return asc ? "leastupdate" : "recentupdate";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Map GitHub repo-search {@code sort}/{@code order} onto Forgejo {@code /repos/search}.
+     */
+    private static void applyRepoSearchSort(HttpUrl url, HttpUrl.Builder urlBuilder) {
+        String sort = url.queryParameter("sort");
+        String order = url.queryParameter("order");
+        if (order == null) {
+            order = url.queryParameter("direction");
+        }
+        urlBuilder.removeAllQueryParameters("sort");
+        urlBuilder.removeAllQueryParameters("order");
+        urlBuilder.removeAllQueryParameters("direction");
+        String fjSort = "alpha";
+        if ("stars".equals(sort)) {
+            fjSort = "stars";
+        } else if ("forks".equals(sort)) {
+            fjSort = "forks";
+        } else if ("updated".equals(sort) || "pushed".equals(sort)) {
+            fjSort = "updated";
+        } else if ("created".equals(sort)) {
+            fjSort = "created";
+        }
+        urlBuilder.setQueryParameter("sort", fjSort);
+        urlBuilder.setQueryParameter("order",
+                "asc".equalsIgnoreCase(order) ? "asc" : "desc");
+    }
+
+    /**
+     * Rewrite {@code /users|orgs/{name}/repos} (no server-side GitHub sort) to
+     * {@code /repos/search?uid=&exclusive=true} with Forgejo sort/order.
+     */
+    private static Request rewriteForeignRepoListRequest(Chain chain, Request original,
+            String login, boolean isOrg) throws IOException {
+        JSONObject account = fetchJsonObject(chain, original,
+                isOrg ? "/api/v1/orgs" : "/api/v1/users", login);
+        if (account == null && !isOrg) {
+            account = fetchJsonObject(chain, original, "/api/v1/orgs", login);
+        }
+        long id = account != null ? account.optLong("id", -1) : -1;
+        if (id < 0) {
+            return original;
+        }
+
+        HttpUrl url = original.url();
+        String sort = url.queryParameter("sort");
+        String direction = url.queryParameter("direction");
+        if (direction == null) {
+            direction = url.queryParameter("order");
+        }
+        if (direction == null) {
+            direction = "full_name".equals(sort) || sort == null || sort.isEmpty() ? "asc" : "desc";
+        }
+
+        HttpUrl.Builder urlBuilder = url.newBuilder()
+                .encodedPath("/api/v1/repos/search");
+        // Drop GitHub list-repos filters Forgejo search does not understand.
+        urlBuilder.removeAllQueryParameters("sort");
+        urlBuilder.removeAllQueryParameters("direction");
+        urlBuilder.removeAllQueryParameters("order");
+        urlBuilder.removeAllQueryParameters("type");
+        urlBuilder.removeAllQueryParameters("affiliation");
+        urlBuilder.removeAllQueryParameters("visibility");
+        urlBuilder.removeAllQueryParameters("uid");
+        urlBuilder.removeAllQueryParameters("exclusive");
+        urlBuilder.removeAllQueryParameters("q");
+
+        String fjSort = "alpha";
+        if ("pushed".equals(sort) || "updated".equals(sort)) {
+            fjSort = "updated";
+        } else if ("created".equals(sort)) {
+            fjSort = "created";
+        }
+        urlBuilder.setQueryParameter("sort", fjSort);
+        urlBuilder.setQueryParameter("order",
+                "asc".equalsIgnoreCase(direction) ? "asc" : "desc");
+        urlBuilder.setQueryParameter("uid", String.valueOf(id));
+        urlBuilder.setQueryParameter("exclusive", "true");
+        if (url.queryParameter("limit") == null && url.queryParameter("per_page") == null) {
+            urlBuilder.setQueryParameter("limit", "30");
+        }
+        return original.newBuilder().url(urlBuilder.build()).build();
     }
 
     private static String wrapArrayAsSearchPage(String body, String totalHeader)
@@ -1406,6 +1600,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
         // Nested commit objects from Forgejo omit comment_count.
         if (out.has("message") && !out.has("comment_count")) {
             out.put("comment_count", 0);
+        }
+        // Forgejo repo payloads often omit pushed_at; fall back to updated_at so
+        // "most recently pushed" UIs and timestamps have something to show.
+        if (out.has("full_name") && out.has("updated_at")
+                && (!out.has("pushed_at") || out.isNull("pushed_at")
+                || out.optString("pushed_at", "").isEmpty())) {
+            out.put("pushed_at", out.opt("updated_at"));
         }
         // Pull requests: Forgejo may omit mergeable_state while still sending mergeable.
         if (out.has("mergeable") && (!out.has("mergeable_state") || out.isNull("mergeable_state")
