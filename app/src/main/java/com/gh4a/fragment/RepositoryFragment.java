@@ -237,7 +237,7 @@ public class RepositoryFragment extends LoadingFragmentBase implements
         final String name = mRepository.name();
 
         OverviewRow forkParentRow = mContentView.findViewById(R.id.fork_parent_row);
-        if (mRepository.isFork() && mRepository.parent() != null) {
+        if (ApiHelpers.isTrue(mRepository.isFork()) && mRepository.parent() != null) {
             Repository parent = mRepository.parent();
             forkParentRow.setVisibility(View.VISIBLE);
             forkParentRow.setText(getForkedFromTextWithHighlight(parent));
@@ -247,7 +247,7 @@ public class RepositoryFragment extends LoadingFragmentBase implements
         }
 
         OverviewRow privateRow = mContentView.findViewById(R.id.private_row);
-        privateRow.setVisibility(mRepository.isPrivate() ? View.VISIBLE : View.GONE);
+        privateRow.setVisibility(ApiHelpers.isTrue(mRepository.isPrivate()) ? View.VISIBLE : View.GONE);
 
         OverviewRow languageRow = mContentView.findViewById(R.id.language_row);
         languageRow.setVisibility(StringUtils.isBlank(mRepository.language())
@@ -261,15 +261,15 @@ public class RepositoryFragment extends LoadingFragmentBase implements
                 .setVisibility(showOverviewRowDivider ? View.VISIBLE : View.GONE);
 
         OverviewRow issuesRow = mContentView.findViewById(R.id.issues_row);
-        issuesRow.setVisibility(mRepository.hasIssues() ? View.VISIBLE : View.GONE);
+        issuesRow.setVisibility(ApiHelpers.isTrue(mRepository.hasIssues()) ? View.VISIBLE : View.GONE);
         issuesRow.setClickIntent(IssueListActivity.makeIntent(getActivity(), owner, name));
 
         OverviewRow pullsRow = mContentView.findViewById(R.id.pulls_row);
         pullsRow.setClickIntent(IssueListActivity.makeIntent(getActivity(), owner, name, true));
 
+        int forksCount = ApiHelpers.nullToZero(mRepository.forksCount());
         OverviewRow forksRow = mContentView.findViewById(R.id.forks_row);
-        forksRow.setText(getResources().getQuantityString(R.plurals.fork,
-                mRepository.forksCount(), mRepository.forksCount()));
+        forksRow.setText(getResources().getQuantityString(R.plurals.fork, forksCount, forksCount));
         forksRow.setClickIntent(ForkListActivity.makeIntent(getActivity(), owner, name));
 
         mStarsRow = mContentView.findViewById(R.id.stars_row);
@@ -290,9 +290,11 @@ public class RepositoryFragment extends LoadingFragmentBase implements
         mContentView.findViewById(R.id.tv_releases_label).setOnClickListener(this::onOtherInfoLabelClick);
 
         Permissions permissions = mRepository.permissions();
-        updateClickableLabel(R.id.tv_collaborators_label, permissions != null && permissions.push());
-        updateClickableLabel(R.id.tv_wiki_label, mRepository.hasWiki());
-        updateClickableLabel(R.id.tv_discussions_label, mRepository.hasDiscussions());
+        updateClickableLabel(R.id.tv_collaborators_label,
+                permissions != null && ApiHelpers.isTrue(permissions.push()));
+        // Forgejo may omit GitHub-only fields (e.g. has_discussions) → null Booleans.
+        updateClickableLabel(R.id.tv_wiki_label, ApiHelpers.isTrue(mRepository.hasWiki()));
+        updateClickableLabel(R.id.tv_discussions_label, ApiHelpers.isTrue(mRepository.hasDiscussions()));
     }
 
     @NonNull
@@ -330,14 +332,14 @@ public class RepositoryFragment extends LoadingFragmentBase implements
     }
 
     private void updateStargazerUi() {
-        mStarsRow.setText(getResources().getQuantityString(R.plurals.star,
-                mRepository.stargazersCount(), mRepository.stargazersCount()));
+        int stars = ApiHelpers.nullToZero(mRepository.stargazersCount());
+        mStarsRow.setText(getResources().getQuantityString(R.plurals.star, stars, stars));
         mStarsRow.setToggleState(mIsStarring != null && mIsStarring);
     }
 
     private void updateWatcherUi() {
-        mWatcherRow.setText(getResources().getQuantityString(R.plurals.watcher,
-                mRepository.subscribersCount(), mRepository.subscribersCount()));
+        int watchers = ApiHelpers.nullToZero(mRepository.subscribersCount());
+        mWatcherRow.setText(getResources().getQuantityString(R.plurals.watcher, watchers, watchers));
         mWatcherRow.setToggleState(mIsWatching != null && mIsWatching);
     }
 

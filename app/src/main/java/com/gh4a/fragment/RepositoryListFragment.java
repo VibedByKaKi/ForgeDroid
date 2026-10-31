@@ -110,9 +110,9 @@ public class RepositoryListFragment extends PagedDataBaseFragment<Repository> {
             Collection<Repository> repositories) {
         if ("sources".equals(mRepoType) || "forks".equals(mRepoType)) {
             for (Repository repository : repositories) {
-                if ("sources".equals(mRepoType) && !repository.isFork()) {
+                if ("sources".equals(mRepoType) && !ApiHelpers.isTrue(repository.isFork())) {
                     adapter.add(repository);
-                } else if ("forks".equals(mRepoType) && repository.isFork()) {
+                } else if ("forks".equals(mRepoType) && ApiHelpers.isTrue(repository.isFork())) {
                     adapter.add(repository);
                 }
             }

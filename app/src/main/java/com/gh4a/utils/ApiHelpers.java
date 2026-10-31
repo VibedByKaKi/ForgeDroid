@@ -44,6 +44,15 @@ import retrofit2.Response;
 public class ApiHelpers {
     public static final int MAX_PAGE_SIZE = 100;
 
+    /** Forgejo/Gitea often omit GitHub Boolean fields → null; avoid unboxing NPEs. */
+    public static boolean isTrue(@Nullable Boolean value) {
+        return Boolean.TRUE.equals(value);
+    }
+
+    public static int nullToZero(@Nullable Integer value) {
+        return value != null ? value : 0;
+    }
+
     public interface IssueState {
         String OPEN = "open";
         String CLOSED = "closed";

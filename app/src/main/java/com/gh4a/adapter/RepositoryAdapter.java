@@ -58,11 +58,14 @@ public class RepositoryAdapter extends RootAdapter<Repository, RepositoryAdapter
 
         holder.tvLanguage.setText(repository.language() != null
                 ? repository.language() : mContext.getString(R.string.unknown));
-        holder.tvForks.setText(String.valueOf(repository.forksCount()));
-        holder.tvStars.setText(String.valueOf(repository.stargazersCount()));
-        holder.tvSize.setText(Formatter.formatFileSize(mContext, 1024L * repository.size()));
-        holder.tvPrivate.setVisibility(repository.isPrivate() ? View.VISIBLE : View.GONE);
-        holder.tvFork.setVisibility(repository.isFork() ? View.VISIBLE : View.GONE);
+        holder.tvForks.setText(String.valueOf(ApiHelpers.nullToZero(repository.forksCount())));
+        holder.tvStars.setText(String.valueOf(ApiHelpers.nullToZero(repository.stargazersCount())));
+        holder.tvSize.setText(Formatter.formatFileSize(mContext,
+                1024L * ApiHelpers.nullToZero(repository.size())));
+        holder.tvPrivate.setVisibility(ApiHelpers.isTrue(repository.isPrivate())
+                ? View.VISIBLE : View.GONE);
+        holder.tvFork.setVisibility(ApiHelpers.isTrue(repository.isFork())
+                ? View.VISIBLE : View.GONE);
     }
 
     @Override

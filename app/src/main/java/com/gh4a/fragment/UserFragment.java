@@ -281,10 +281,10 @@ public class UserFragment extends LoadingFragmentBase implements
                 }
 
                 TextView tvForks = rowView.findViewById(R.id.tv_forks);
-                tvForks.setText(String.valueOf(repo.forksCount()));
+                tvForks.setText(String.valueOf(ApiHelpers.nullToZero(repo.forksCount())));
 
                 TextView tvStars = rowView.findViewById(R.id.tv_stars);
-                tvStars.setText(String.valueOf(repo.stargazersCount()));
+                tvStars.setText(String.valueOf(ApiHelpers.nullToZero(repo.stargazersCount())));
 
                 ll.addView(rowView);
             }
