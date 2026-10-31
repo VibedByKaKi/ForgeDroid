@@ -17,6 +17,7 @@ package com.gh4a.fragment;
 
 import android.content.Intent;
 import android.os.Bundle;
+import androidx.annotation.Nullable;
 import androidx.annotation.PluralsRes;
 import androidx.core.content.ContextCompat;
 
@@ -76,6 +77,7 @@ public class UserFragment extends LoadingFragmentBase implements
     private static final int ID_LOADER_ORG_LIST = 1;
     private static final int ID_LOADER_IS_FOLLOWING = 2;
     private static final int ID_LOADER_ORG_MEMBER_COUNT = 3;
+    private static final int ID_LOADER_REPO_COUNT = 4;
 
     private User mUser;
     private View mContentView;
@@ -101,6 +103,7 @@ public class UserFragment extends LoadingFragmentBase implements
     public void onRefresh() {
         mIsFollowing = null;
         loadTopRepositories(true);
+        loadRepoCountIfNeeded(true);
         loadOrganizationsIfUser(true);
         loadOrganizationMemberCountIfOrg(true);
         loadIsFollowingStateIfNeeded(true);
@@ -112,6 +115,7 @@ public class UserFragment extends LoadingFragmentBase implements
 
         fillData();
         loadTopRepositories(false);
+        loadRepoCountIfNeeded(false);
         loadOrganizationsIfUser(false);
         loadOrganizationMemberCountIfOrg(false);
         loadIsFollowingStateIfNeeded(false);
@@ -173,16 +177,24 @@ public class UserFragment extends LoadingFragmentBase implements
         }
 
         OverviewRow gistsRow = mContentView.findViewById(R.id.gists_row);
-        gistsRow.setVisibility(isUser ? View.VISIBLE : View.GONE);
-        if (isUser) {
+        // Forgejo has no gists API and omits gist counts; hide rather than show a fake 0.
+        boolean hasGistCounts = mUser.publicGists() != null || mUser.privateGists() != null;
+        gistsRow.setVisibility(isUser && hasGistCounts ? View.VISIBLE : View.GONE);
+        if (isUser && hasGistCounts) {
             int totalCount = orZero(mUser.publicGists()) + orZero(mUser.privateGists());
             gistsRow.setText(getResources().getQuantityString(R.plurals.gist, totalCount, totalCount));
             gistsRow.setClickIntent(GistListActivity.makeIntent(getActivity(), mUser.login()));
         }
 
         OverviewRow reposRow = mContentView.findViewById(R.id.repos_row);
-        int repoCount = orZero(mUser.totalPrivateRepos()) + orZero(mUser.publicRepos());
-        reposRow.setText(getResources().getQuantityString(R.plurals.repository, repoCount, repoCount));
+        Integer knownRepoCount = knownRepoCount();
+        if (knownRepoCount != null) {
+            reposRow.setText(getResources().getQuantityString(
+                    R.plurals.repository, knownRepoCount, knownRepoCount));
+        } else {
+            // Forgejo user/org payloads omit public_repos; filled asynchronously.
+            reposRow.setText(getString(R.string.user_pub_repos));
+        }
         reposRow.setClickIntent(RepositoryListActivity.makeIntent(getActivity(), mUser.login(), !isUser));
 
         OverviewRow typeRow = mContentView.findViewById(R.id.type_row);
@@ -360,6 +372,56 @@ public class UserFragment extends LoadingFragmentBase implements
                     handleActionFailure("Toggling following state failed", error);
                     updateFollowingUi();
                 });
+    }
+
+    @Nullable
+    private Integer knownRepoCount() {
+        Integer pub = mUser.publicRepos();
+        Integer priv = mUser.totalPrivateRepos();
+        if (pub == null && priv == null) {
+            return null;
+        }
+        return orZero(pub) + orZero(priv);
+    }
+
+    private void updateReposRow(int repoCount) {
+        OverviewRow reposRow = mContentView.findViewById(R.id.repos_row);
+        reposRow.setText(getResources().getQuantityString(
+                R.plurals.repository, repoCount, repoCount));
+    }
+
+    private void loadRepoCountIfNeeded(boolean force) {
+        if (knownRepoCount() != null) {
+            return;
+        }
+        // Forgejo omits public_repos; use X-Total-Count from a 1-item repo page.
+        RepositoryService service = ServiceFactory.get(RepositoryService.class, force, 1);
+        Map<String, String> filterData = new HashMap<>();
+        filterData.put("sort", "pushed");
+        filterData.put("affiliation", "owner,collaborator");
+        final Single<Response<Page<Repository>>> observable;
+        if (mIsSelf) {
+            observable = service.getUserRepositories(filterData, 1);
+        } else if (userType() == UserType.Organization) {
+            observable = service.getOrganizationRepositories(mUser.login(), filterData, 1);
+        } else {
+            observable = service.getUserRepositories(mUser.login(), filterData, 1);
+        }
+        observable
+                .map(response -> {
+                    ApiHelpers.throwOnFailure(response);
+                    String totalHeader = response.headers().get("X-Total-Count");
+                    if (totalHeader != null) {
+                        try {
+                            return Integer.parseInt(totalHeader.trim());
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                    Page<Repository> page = response.body();
+                    return page != null && page.items() != null ? page.items().size() : 0;
+                })
+                .compose(makeLoaderSingle(ID_LOADER_REPO_COUNT, force))
+                .subscribe(this::updateReposRow, this::handleLoadFailure);
     }
 
     private void loadTopRepositories(boolean force) {

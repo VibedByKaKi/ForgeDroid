@@ -164,6 +164,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         break;
                     case USER_SEARCH_OBJECT:
                         rewritten = convertUserSearchToSearchPage(bodyString);
+                        rewritten = maybeAugmentUserSearchWithExactMatch(
+                                chain, request, rewritten);
                         break;
                     case ISSUE_TIMELINE:
                         rewritten = convertIssueTimeline(bodyString);
@@ -684,6 +686,76 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .put("incomplete_results", false)
                 .put("items", data)
                 .toString();
+    }
+
+    /**
+     * Forgejo {@code /users/search} often misses exact org/user logins that still resolve via
+     * {@code /users/{name}} or {@code /orgs/{name}}. When search is empty and {@code q} looks like
+     * a single login, try those lookups so the Users search screen can open them.
+     */
+    private static String maybeAugmentUserSearchWithExactMatch(Chain chain, Request searchReq,
+            String searchPageJson) throws IOException, JSONException {
+        JSONObject page = new JSONObject(searchPageJson);
+        JSONArray items = page.optJSONArray("items");
+        if (items != null && items.length() > 0) {
+            return searchPageJson;
+        }
+        String q = searchReq.url().queryParameter("q");
+        if (q == null) {
+            return searchPageJson;
+        }
+        q = q.trim();
+        if (q.isEmpty() || q.contains(" ") || q.contains(":")) {
+            return searchPageJson;
+        }
+
+        // Prefer /orgs so org accounts are not mis-typed as User via /users/{name}.
+        JSONObject user = fetchJsonObject(chain, searchReq, "/api/v1/orgs", q);
+        boolean fromOrg = user != null;
+        if (user == null) {
+            user = fetchJsonObject(chain, searchReq, "/api/v1/users", q);
+        }
+        if (user == null) {
+            return searchPageJson;
+        }
+        if ((!user.has("login") || user.isNull("login") || user.optString("login").isEmpty())
+                && user.has("username") && !user.isNull("username")) {
+            user.put("login", user.optString("username"));
+        }
+        if (fromOrg || user.has("repo_admin_change_team_access")) {
+            user.put("type", "Organization");
+        } else if (!user.has("type") || user.isNull("type")) {
+            user.put("type", "User");
+        }
+        return new JSONObject()
+                .put("total_count", 1)
+                .put("incomplete_results", false)
+                .put("items", new JSONArray().put(user))
+                .toString();
+    }
+
+    private static JSONObject fetchJsonObject(Chain chain, Request template,
+            String encodedPath, String pathSegment) throws IOException {
+        HttpUrl url = template.url().newBuilder()
+                .encodedPath(encodedPath)
+                .addPathSegment(pathSegment)
+                .query(null)
+                .build();
+        Response resp = chain.proceed(template.newBuilder().url(url).get().build());
+        try {
+            if (!resp.isSuccessful() || resp.body() == null) {
+                return null;
+            }
+            String body = resp.body().string();
+            if (body == null || body.trim().isEmpty() || "null".equals(body.trim())) {
+                return null;
+            }
+            return new JSONObject(body);
+        } catch (JSONException e) {
+            return null;
+        } finally {
+            resp.close();
+        }
     }
 
     private static String extractItemsArray(String body) {
