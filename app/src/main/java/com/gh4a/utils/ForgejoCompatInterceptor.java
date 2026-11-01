@@ -105,6 +105,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
     private static final Pattern REACTIONS =
             Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern RELEASE_REACTIONS =
+            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/releases/\\d+/reactions$");
     private static final Pattern REACTION_DELETE =
             Pattern.compile("^/api/v1/repos/(.+/reactions)/(\\d+)$");
     private static final String[] REACTION_CONTENTS = {
@@ -156,6 +158,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
             // Forgejo has no GitHub-compatible code search API.
             return jsonResponse(original,
                     "{\"total_count\":0,\"incomplete_results\":false,\"items\":[]}");
+        }
+        if (RELEASE_REACTIONS.matcher(originalPath).matches()) {
+            return emptyJsonArray(original);
         }
         if (WIKI_PAGES.matcher(originalPath).matches()) {
             // Missing wikis 404; treat as empty so the wiki screen can show its empty state.
