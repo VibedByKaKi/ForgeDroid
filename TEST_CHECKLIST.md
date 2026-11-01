@@ -181,7 +181,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 12. Repository (`repo_menu`)
 - [x] About tab: description, language, counts (2026-11-01)
 - [x] Counts match the server for issues, pull requests, forks, stars, watchers (2026-11-01, stars and watchers update after toggling)
-- [ ] Tap each count row opens its list
+- [x] Tap each count row opens its list (2026-11-01, fixed: issues list 404ed on a repo with an external tracker; now empty)
 - [x] README expand and collapse, relative links and images (2026-11-01, fixed: relative images were broken and emoji shortcodes showed as text)
 - [ ] Overview row taps (owner, homepage)
 - [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)

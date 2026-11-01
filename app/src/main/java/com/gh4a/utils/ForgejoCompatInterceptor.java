@@ -111,6 +111,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/.+/reactions$");
     private static final Pattern LABEL_BY_NAME =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/labels/([^/\\d][^/]*|\\d*[^/\\d][^/]*)$");
+    private static final Pattern REPO_ISSUES_LIST =
+            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/issues$");
     private static final Pattern QUERY_TOKEN =
             Pattern.compile("[^\\s\"]+:\"[^\"]*\"|\"[^\"]*\"|\\S+");
     private static final Pattern COLLABORATORS_LIST =
@@ -248,6 +250,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
         BodyMode mode = detectBodyMode(original.url().encodedPath(), request.url().encodedPath());
         Response response = chain.proceed(request);
+        if (response.code() == 404 && "GET".equalsIgnoreCase(original.method())
+                && REPO_ISSUES_LIST.matcher(request.url().encodedPath()).matches()) {
+            // Repos with an external tracker answer 404 for issues; show an empty list.
+            response.close();
+            return emptyJsonArray(original);
+        }
 
         String path = request.url().encodedPath();
         String bodyString = null;
