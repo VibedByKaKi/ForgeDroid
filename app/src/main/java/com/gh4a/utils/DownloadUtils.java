@@ -47,6 +47,12 @@ public class DownloadUtils {
                 () -> enqueueDownload(activity, url, fileName, description, mimeType, null, false));
     }
 
+    public static void enqueueAuthenticatedDownloadWithPermissionCheck(final BaseActivity activity,
+            final String url, final String mimeType, final String fileName) {
+        handleDownloadPermissionCheck(activity,
+                () -> enqueueDownload(activity, url, fileName, null, mimeType, null, true));
+    }
+
     private static void handleDownloadPermissionCheck(final BaseActivity activity, Runnable func) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // API 29+ doesn't require WRITE_EXTERNAL_STORAGE permission anymore,
@@ -102,6 +108,12 @@ public class DownloadUtils {
         //  provided in the Location header from the response of the first step. You would not
         //  provide an Authorization header here since the required authorization is already a
         //  part of the URL."
+        if (asset.browserDownloadUrl() != null) {
+            // Forgejo serves attachments from browser_download_url and accepts the token header.
+            enqueueDownload(context, asset.browserDownloadUrl(), asset.name(), asset.label(),
+                    asset.contentType(), null, true);
+            return;
+        }
         final OkHttpClient client = ServiceFactory.getHttpClientBuilder()
                 .followRedirects(false)
                 .build();

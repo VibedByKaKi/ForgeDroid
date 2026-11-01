@@ -321,13 +321,14 @@ public class RepositoryActivity extends BaseFragmentPagerActivity implements
                 }
                 return true;
             case R.id.zip_download: {
+                // Forgejo serves archives at /archive/{ref}.zip and needs the token header.
                 final String zipUrl = Uri.parse(mRepository.url())
                         .buildUpon()
-                        .appendPath("zipball")
-                        .appendPath(getCurrentRef())
+                        .appendPath("archive")
+                        .appendPath(getCurrentRef() + ".zip")
                         .toString();
-                DownloadUtils.enqueueDownloadWithPermissionCheck(this, zipUrl, "application/zip",
-                        mRepoName + "-" + getCurrentRef() + ".zip", null);
+                DownloadUtils.enqueueAuthenticatedDownloadWithPermissionCheck(this, zipUrl,
+                        "application/zip", mRepoName + "-" + getCurrentRef() + ".zip");
                 return true;
             }
         }

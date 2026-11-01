@@ -188,8 +188,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [ ] Menu: Search code and open a result
-- [ ] Menu: Download code as ZIP
-- [ ] Menu: Bookmark and remove bookmark
+- [!] Menu: Download code as ZIP (2026-11-01, fixed URL (/archive/{ref}.zip) and token header, but git.kaki87.net hangs on every archive request even with curl; retry later)
+- [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
 - [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
 - [ ] Fork
@@ -217,7 +217,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Release detail: title, tag, body, assets
 - [ ] Tag text tap and avatar tap
 - [ ] Menu: Open in browser, Add reaction
-- [ ] Download an asset
+- [!] Download an asset (2026-11-01, changed to browser_download_url with token header; not tested, no release with assets found yet)
 - [ ] Release reaction picker
 
 ## 15. Users, orgs and social
