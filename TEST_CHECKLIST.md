@@ -58,10 +58,10 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Issue opened, closed and reopened rows, tap through
 - [ ] Issue comment row, tap through
 - [ ] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen)
-- [ ] Pull request comment row, tap through (opens the PR screen, not the issue screen)
+- [x] Pull request comment row, tap through (opens the PR screen, not the issue screen) (2026-11-01, fixed: opened the issue screen, now the PR screen)
 - [ ] Fork, star and release rows, tap through
 - [ ] Unsupported event types are skipped without a blank row
-- [ ] No "null", "pull request 0" or raw `number|title` text
+- [x] No "null", "pull request 0" or raw `number|title` text (2026-11-01, fixed number|title parsing)
 - [ ] Same checks for an org feed
 
 ## 4. Notifications (`notification_list_menu`, `notification_menu`)
@@ -140,7 +140,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Milestone detail issue list
 
 ## 9. Pull request detail (`pullrequest_menu`, `pull_request_fragment_menu`)
-- [ ] Conversation tab: header, branch info (head into base), status
+- [x] Conversation tab: header, branch info (head into base), status (2026-11-01, body and comment markdown now render)
 - [ ] Commit status box: header tap and each row tap
 - [ ] Commits tab, open a commit
 - [ ] Files tab, open a file diff
@@ -304,3 +304,5 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Slow network does not duplicate rows
 - [ ] Release build behaves like debug (R8 does not strip the interceptor models)
 - [ ] Back stack after deep link
+
+- [ ] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized)

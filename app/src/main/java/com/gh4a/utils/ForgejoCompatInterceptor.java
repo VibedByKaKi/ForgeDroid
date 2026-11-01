@@ -254,6 +254,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
             rewritten = aliasStarFields(rewritten);
             if (response.isSuccessful()) {
                 rewritten = maybeEnrichFilePatches(chain, request, path, rewritten);
+                rewritten = maybeAddBodyHtml(chain, request, path, rewritten);
             }
 
             Response.Builder builder = response.newBuilder()
@@ -281,6 +282,103 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     .body(ResponseBody.create(contentType != null ? contentType : JSON, bodyString))
                     .build();
         }
+    }
+
+
+    private static final Pattern BODY_PATHS = Pattern.compile(
+            "^/api/v1/repos/([^/]+)/([^/]+)/(issues|pulls|releases|commits|git/commits)(/.*)?$");
+    private static final int MAX_RENDERED_BODIES = 40;
+    private static final Map<String, String> RENDERED_CACHE =
+            Collections.synchronizedMap(new LinkedHashMap<String, String>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+                    return size() > 200;
+                }
+            });
+
+    /**
+     * GitHub clients read rendered markdown from {@code body_html}. Forgejo only sends
+     * {@code body}, so descriptions and comments come out blank. Render each body with
+     * {@code POST /markdown} and add the result as {@code body_html}.
+     */
+    private static String maybeAddBodyHtml(Chain chain, Request request, String path,
+            String body) throws IOException, JSONException {
+        Matcher m = BODY_PATHS.matcher(path);
+        if (!m.matches() || body == null || !body.contains("\"body\"")) {
+            return body;
+        }
+        String trimmed = body.trim();
+        Object root = trimmed.startsWith("[") ? new JSONArray(trimmed) : new JSONObject(trimmed);
+        int[] budget = { MAX_RENDERED_BODIES };
+        addBodyHtml(chain, request, m.group(1) + "/" + m.group(2), root, budget);
+        return root.toString();
+    }
+
+    private static void addBodyHtml(Chain chain, Request request, String context, Object node,
+            int[] budget) throws IOException, JSONException {
+        if (node instanceof JSONArray) {
+            JSONArray arr = (JSONArray) node;
+            for (int i = 0; i < arr.length(); i++) {
+                addBodyHtml(chain, request, context, arr.opt(i), budget);
+            }
+        } else if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            Object text = obj.opt("body");
+            if (text instanceof String && !((String) text).isEmpty() && !obj.has("body_html")) {
+                obj.put("body_html", renderMarkdown(chain, request, context, (String) text, budget));
+            }
+            Iterator<String> keys = obj.keys();
+            List<Object> children = new ArrayList<>();
+            while (keys.hasNext()) {
+                Object child = obj.opt(keys.next());
+                if (child instanceof JSONObject || child instanceof JSONArray) {
+                    children.add(child);
+                }
+            }
+            for (Object child : children) {
+                addBodyHtml(chain, request, context, child, budget);
+            }
+        }
+    }
+
+    private static String renderMarkdown(Chain chain, Request request, String context,
+            String text, int[] budget) throws IOException, JSONException {
+        String cacheKey = context + "\n" + text;
+        String cached = RENDERED_CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        String html = null;
+        if (budget[0] > 0) {
+            budget[0]--;
+            JSONObject payload = new JSONObject()
+                    .put("Text", text)
+                    .put("Mode", "gfm")
+                    .put("Context", context);
+            HttpUrl url = request.url().newBuilder()
+                    .encodedPath("/api/v1/markdown")
+                    .query(null)
+                    .build();
+            Response rendered = chain.proceed(request.newBuilder()
+                    .url(url)
+                    .post(okhttp3.RequestBody.create(JSON, payload.toString()))
+                    .header("Accept", "text/html")
+                    .build());
+            try {
+                if (rendered.isSuccessful() && rendered.body() != null) {
+                    html = rendered.body().string();
+                }
+            } finally {
+                rendered.close();
+            }
+        }
+        if (html == null) {
+            html = "<p>" + text.replace("&", "&amp;").replace("<", "&lt;")
+                    .replace(">", "&gt;").replace("\n", "<br>") + "</p>";
+            return html;
+        }
+        RENDERED_CACHE.put(cacheKey, html);
+        return html;
     }
 
     /**
@@ -1696,7 +1794,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .put("state", "open")
                 .put("user", feed.optJSONObject("act_user"));
         if (isPull) {
-            issue.put("pull_request", new JSONObject());
+            // Feed clicks only open the PR screen when pull_request has an html_url.
+            issue.put("pull_request", new JSONObject().put("html_url", html));
         }
         return issue;
     }
