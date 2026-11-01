@@ -348,7 +348,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         rewritten = convertActivityFeedsToEvents(bodyString);
                         break;
                     case ISSUE_SEARCH_ARRAY:
-                        rewritten = wrapArrayAsSearchPage(bodyString, totalCountHeader);
+                        String mergedWanted = request.url().queryParameter("x_merged");
+                        String arrayBody = mergedWanted == null ? bodyString
+                                : filterByMerged(bodyString, "true".equals(mergedWanted));
+                        rewritten = wrapArrayAsSearchPage(arrayBody, totalCountHeader);
                         break;
                     case REPO_SEARCH_OBJECT:
                         rewritten = convertRepoSearchToSearchPage(bodyString);
@@ -905,6 +908,19 @@ public class ForgejoCompatInterceptor implements Interceptor {
         } catch (JSONException e) {
             return emptyJsonArray(original);
         }
+    }
+
+    private static String filterByMerged(String body, boolean merged) throws JSONException {
+        JSONArray in = new JSONArray(body);
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject issue = in.optJSONObject(i);
+            JSONObject pr = issue != null ? issue.optJSONObject("pull_request") : null;
+            if (pr != null && pr.optBoolean("merged", false) == merged) {
+                out.put(issue);
+            }
+        }
+        return out.toString();
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(
@@ -1789,6 +1805,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String author = null;
         String mentionedUser = null;
         String milestone = null;
+        String mergedFilter = null;
         if (q != null) {
             Matcher tokens = QUERY_TOKEN.matcher(q.trim());
             while (tokens.find()) {
@@ -1800,6 +1817,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         || token.equals("is:pulls") || token.equals("type:pr")
                         || token.equals("type:pulls")) {
                     type = "pulls";
+                } else if (token.equals("is:merged")) {
+                    mergedFilter = "true";
+                    state = "closed";
+                } else if (token.equals("is:unmerged")) {
+                    mergedFilter = "false";
                 } else if (token.equals("is:open") || token.equals("state:open")) {
                     state = "open";
                 } else if (token.equals("is:closed") || token.equals("state:closed")) {
@@ -1839,6 +1861,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
 
+        if (mergedFilter != null) {
+            // Forgejo cannot filter by merge state; the response is filtered in wrapArrayAsSearchPage.
+            urlBuilder.setQueryParameter("x_merged", mergedFilter);
+        }
         String forgejoSort = mapGithubIssueSort(ghSort, ghOrder);
         if (owner != null && repo != null) {
             // Per-repo list: Forgejo search owner/repo params do not scope to one repo.

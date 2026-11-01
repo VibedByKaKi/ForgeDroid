@@ -83,7 +83,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Type filters for another user: All, Owner, Member, Sources, Forks, Watched, Starred (2026-11-01, checked on juliomontilla100: Sources, Forks and Watched work; Owner and Member return the same list (Forgejo has no member filter for other users))
 - [x] Type filters for an org: All, Sources, Forks (2026-11-01, menu lists All, Sources, Forks; filtering is client-side as in the original app)
 - [x] Sort: name A-Z, name Z-A, oldest, newest, least recently pushed, most recently pushed (2026-11-01, A-Z and oldest checked on screen; the other four sent without error)
-- [ ] Starred list sort order (`repo_starred_list_menu`): oldest, newest, least and most recently pushed
+- [x] Starred list sort order (`repo_starred_list_menu`): oldest, newest, least and most recently pushed (2026-11-01, four orders listed, Newest requests sort=created&direction=desc)
 - [x] Private and fork badges render (2026-11-01, private badge shown; fork badge not seen)
 - [x] Repository list from a user profile, an org profile, a starred list, a forks list (2026-11-01, user and org lists; forks list empty state; starred list checked)
 
@@ -101,7 +101,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Manage labels (collaborator menu) (2026-11-01)
 - [x] Manage milestones (collaborator menu) (2026-11-01)
 - [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
-- [ ] Same checks for the pull request list
+- [x] Same checks for the pull request list (2026-11-01, fixed: Merged tab was empty and Closed tab mixed merged PRs; merge state is now filtered client-side)
 - [x] Create issue button (2026-11-01)
 - [x] Empty state (2026-11-01, empty list text shown)
 
@@ -175,7 +175,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Open a changed file from a commit (2026-11-01)
 - [-] Commit comments tab: add comment (2026-11-01, Forgejo has no commit comments; the tab is removed)
 - [-] Commit comment actions: Share, Reply, Add comment, Add reaction, Edit, Delete (2026-11-01, Forgejo has no commit comments)
-- [ ] Commit compare view between two refs
+- [x] Commit compare view between two refs (2026-11-01, main...review-pr lists the commit; a deleted branch gives the server error with TRY AGAIN)
 - [ ] Commit status box
 
 ## 12. Repository (`repo_menu`)
@@ -226,7 +226,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Profile menu: Share, Open in browser, Bookmark (2026-11-01, all listed; Bookmark saved and opens from the bookmarks tab)
 - [-] Follow and unfollow (2026-11-01, skipped on purpose: it would notify real users)
 - [x] Followers list, Following list (2026-11-01, Followers list and profile of a follower checked)
-- [ ] Starred repos of a user
+- [x] Starred repos of a user (2026-11-01, juliomontilla100 starred list loads)
 - [x] Organizations of a user (2026-11-01, KaKi87 organization list opens and entries open the org profile)
 - [x] Org profile and org repos (2026-11-01, playsearch.kaki87.net)
 - [x] Org members list (`OrganizationMemberListFragment`), open a member (2026-11-01, list shown; member tap not done)
@@ -283,8 +283,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Web view find bar: find previous, find next (2026-11-01, match counter 1/22 and next and previous arrows work)
 - [-] Print menu (2026-11-01, opens the system print dialog; not verifiable on the emulator)
 - [ ] Pull to refresh on every paged list
-- [ ] Error view TRY AGAIN retries
-- [ ] Empty view text on every list
+- [x] Error view TRY AGAIN retries (2026-11-01, recovered after reconnecting the network)
+- [x] Empty view text on every list (2026-11-01, empty texts seen on issues, PRs, gists, starred, notifications, search, files, commits)
 
 ## 22. Deep links and intents
 - [x] Forgejo repo URL (2026-11-01, fixed: manifest only had github.com; now the seven preset hosts)
