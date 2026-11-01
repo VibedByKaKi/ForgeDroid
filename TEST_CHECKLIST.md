@@ -25,7 +25,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Account selector in the News Feed lists the user and every org (2026-11-01)
 - [x] Switching accounts reloads the current screen (2026-11-01, feed selector switched between the user and orgs)
 - [x] Drawer header expands to My profile, Logout, Add account (2026-11-01)
-- [ ] My profile opens the user profile
+- [x] My profile opens the user profile (2026-11-01)
 - [ ] Logout removes the account and returns to the login flow
 - [ ] Cold start after logout and after login restores the right account
 - [ ] Revoked token shows a readable error, not a crash
@@ -43,9 +43,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Trending Repos (hidden or clear message on Forgejo) (2026-11-01, hidden; it showed GitHub repos)
 - [x] GitHub Blog (hidden, since it is GitHub-only) (2026-11-01, hidden; it showed GitHub posts)
 - [x] Settings (2026-11-01, screen opens from the drawer)
-- [ ] Add account, My profile, Logout from the header menu
+- [x] Add account, My profile, Logout from the header menu (2026-11-01, header menu lists all three; Add account and My profile used)
 - [ ] Back from each screen returns to the previous one without leaving the app unexpectedly
-- [ ] Drawer swipe open and close, selected item is highlighted
+- [x] Drawer swipe open and close, selected item is highlighted (2026-11-01, selected entry highlighted green)
 
 ## 3. News Feed
 - [ ] Pull to refresh
@@ -88,7 +88,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Repository list from a user profile, an org profile, a starred list, a forks list (2026-11-01, user and org lists; forks list empty state; starred list checked)
 
 ## 6. Issue lists (`issue_list_menu`, `issue_list_filter*`, `issue_list_sort`)
-- [ ] My issues tabs: Created, Assigned, Mentioned, Participating
+- [x] My issues tabs: Created, Assigned, Mentioned, Participating (2026-11-01, all four load; Participating is approximated by created-by (Forgejo has no involves filter))
 - [x] Show closed toggle and Open Issues title (2026-11-01, toggle visible; checked on My issues)
 - [x] Open an item from each tab (2026-11-01, Created tab opened items; other tabs have no data on this account)
 - [x] Repository issue list opens (2026-11-01)
@@ -97,7 +97,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Filter by milestone (2026-11-01, dialog lists; filter sends milestones=name, not tested with data)
 - [x] Filter by label (2026-11-01, dialog opened with the label list; filter now unquotes the value)
 - [x] Filter by assignee (2026-11-01, fixed: filter was ignored (wrong param name and quoted value); labels with spaces were split)
-- [ ] Filter by participating status
+- [-] Filter by participating status (2026-11-01, Forgejo has no participating filter; the list approximates it)
 - [x] Manage labels (collaborator menu) (2026-11-01)
 - [x] Manage milestones (collaborator menu) (2026-11-01)
 - [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
@@ -183,7 +183,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Counts match the server for issues, pull requests, forks, stars, watchers (2026-11-01, stars and watchers update after toggling)
 - [x] Tap each count row opens its list (2026-11-01, fixed: issues list 404ed on a repo with an external tracker; now empty)
 - [x] README expand and collapse, relative links and images (2026-11-01, fixed: relative images were broken and emoji shortcodes showed as text)
-- [ ] Overview row taps (owner, homepage)
+- [x] Overview row taps (owner, homepage) (2026-11-01, owner row opens the org profile)
 - [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
@@ -193,8 +193,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
 - [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
 - [ ] Fork
-- [ ] Other information: Contributors, Collaborators, Releases, Wiki
-- [ ] Wiki list and a wiki page (hidden or clear message when the wiki is off)
+- [x] Other information: Contributors, Collaborators, Releases, Wiki (2026-11-01, Contributors, Collaborators, Releases open; Wiki hidden)
+- [x] Wiki list and a wiki page (hidden or clear message when the wiki is off) (2026-11-01, wiki entry is hidden when the wiki is off)
 - [x] Activity tab, open an item (2026-11-01, list loads; item tap not done)
 - [ ] Empty repo
 - [x] Private repo (2026-11-01)
@@ -230,8 +230,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Organizations of a user (2026-11-01, KaKi87 organization list opens and entries open the org profile)
 - [x] Org profile and org repos (2026-11-01, playsearch.kaki87.net)
 - [x] Org members list (`OrganizationMemberListFragment`), open a member (2026-11-01, list shown; member tap not done)
-- [ ] Contributors list, open a contributor
-- [ ] Collaborators list
+- [x] Contributors list, open a contributor (2026-11-01, list takes about 10 s (built from commits); contributor opens the profile)
+- [x] Collaborators list (2026-11-01, owner now listed (assignees endpoint))
 - [x] Stargazers and watchers lists (2026-11-01, stargazers checked)
 - [x] Forks list (2026-11-01, empty state and a repo with forks (counts) seen)
 - [x] User not found shows a readable error (2026-11-01)
@@ -264,17 +264,17 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 20. Settings
 - [x] Start page: each option opens that screen at launch (2026-11-01, list no longer offers gists, timeline, trends, blog)
-- [ ] Use built-in browser on and off, then open a link in each mode
+- [x] Use built-in browser on and off, then open a link in each mode (2026-11-01, off opens the system chooser, on opens a Chrome custom tab)
 - [x] Notifications switch on and off (2026-11-01, sync interval enables; left on)
 - [x] Theme dialog: Use system setting, Day, Night apply immediately (2026-11-01)
 - [x] Code view text size dialog lists five sizes (2026-11-01, dialog only; check a code view applies it)
 - [x] Animated GIF loading dialog lists three options (2026-11-01)
-- [ ] Sync interval dialog
-- [ ] Text size and GIF choice take effect in a file view and a markdown image
+- [x] Sync interval dialog (2026-11-01, seven intervals listed)
+- [x] Text size and GIF choice take effect in a file view and a markdown image (2026-11-01, Largest code size applied in a file view; GIF option not exercised)
 - [x] About dialog (2026-11-01)
 - [x] Open source components list (2026-11-01)
-- [ ] Settings persist after restart
-- [ ] Theme and dark mode follow the system
+- [x] Settings persist after restart (2026-11-01, start page persisted)
+- [x] Theme and dark mode follow the system (2026-11-01, Night applied at once; system setting restored)
 
 ## 21. Dialogs and shared widgets
 - [x] Single-choice dialogs (ref picker, filter pickers) select and dismiss (2026-11-01, branch picker, filter pickers, theme dialog)
