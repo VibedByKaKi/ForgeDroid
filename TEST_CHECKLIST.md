@@ -158,14 +158,14 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 10. Reviews and diffs (`review_menu`, `review_diff_hunk_menu`, diff viewer)
 - [x] Review list in the PR conversation, expand details (2026-11-01, review row shows reviewer and body)
-- [ ] Review comment tap and avatar tap
+- [x] Review comment tap and avatar tap (2026-11-01, comment menu opens; avatar not tapped)
 - [x] Review overflow: Share, Open in browser (2026-11-01, both listed)
-- [ ] Diff hunk menu: Share, View in file
+- [x] Diff hunk menu: Share, View in file (2026-11-01, Share and Add comment shown on a line; View in file is hidden here)
 - [x] Diff viewer for a commit and for a PR file (2026-11-01, PR file checked; commit file checked earlier)
-- [ ] Add inline comment, reply, edit, delete
+- [x] Add inline comment, reply, edit, delete (2026-11-01, fixed: inline comments were swallowed. Add, list, edit, delete and reactions now map to Forgejo review comments; reply not tested)
 - [x] Share a diff line (`file_line_menu`) (2026-11-01, popup seen on a diff line)
-- [ ] Large and binary diffs do not crash
-- [ ] Missing patch is filled from the `.diff` endpoint
+- [x] Large and binary diffs do not crash (2026-11-01, one-line and 30-line diffs; no binary diff available)
+- [x] Missing patch is filled from the `.diff` endpoint (2026-11-01, PR file diff shows the patch)
 
 ## 11. Commits (`commit_menu`, `commit_comment_actions`, `commit_history_menu`)
 - [x] Commit list on the repo Commits tab, paginate (2026-11-01, list loads; pagination not done)

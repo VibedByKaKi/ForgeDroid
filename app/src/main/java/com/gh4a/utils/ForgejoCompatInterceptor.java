@@ -113,6 +113,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+/[^/]+)/git/refs/(?:heads|tags)(?:/|%2F)(.+)$");
     private static final Pattern PULL_REVIEWS =
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/reviews(/\\d+)?$");
+    private static final Pattern REVIEW_COMMENT_REACTIONS = Pattern.compile(
+            "^/api/v1/repos/([^/]+/[^/]+)/pulls/comments/(\\d+)(/reactions(?:/\\d+)?)?$");
     private static final Pattern PULL_MERGE =
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/merge$");
     private static final Pattern LABEL_BY_NAME =
@@ -159,10 +161,22 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String originalPath = original.url().encodedPath();
         if (PUBLIC_EVENTS.matcher(originalPath).matches()
                 || GISTS.matcher(originalPath).matches()
-                || COMMIT_COMMENTS.matcher(originalPath).matches()
-                || PULL_REVIEW_COMMENTS.matcher(originalPath).matches()) {
+                || COMMIT_COMMENTS.matcher(originalPath).matches()) {
             // Forgejo has no global public timeline, gists, commit-comments, or
             // GitHub-shaped PR review-comments list API.
+            return emptyJsonArray(original);
+        }
+        Matcher reviewComments = PULL_REVIEW_COMMENTS.matcher(originalPath);
+        if (reviewComments.matches()) {
+            String method = original.method();
+            if ("POST".equalsIgnoreCase(method)) {
+                return createInlineReviewComment(chain, original, reviewComments.group(1),
+                        reviewComments.group(2), reviewComments.group(3));
+            }
+            if ("GET".equalsIgnoreCase(method)) {
+                return listInlineReviewComments(chain, original, reviewComments.group(1),
+                        reviewComments.group(2), reviewComments.group(3));
+            }
             return emptyJsonArray(original);
         }
         if (REQUESTED_REVIEWERS.matcher(originalPath).matches()) {
@@ -207,6 +221,30 @@ public class ForgejoCompatInterceptor implements Interceptor {
                             + refDelete.group(2))
                     .build();
             return chain.proceed(original.newBuilder().url(url).build());
+        }
+        Matcher reviewCommentReaction = REVIEW_COMMENT_REACTIONS.matcher(originalPath);
+        if (reviewCommentReaction.matches() && reviewCommentReaction.group(3) == null
+                && "DELETE".equalsIgnoreCase(original.method())) {
+            String location = REVIEW_COMMENT_LOCATIONS.get(
+                    Long.parseLong(reviewCommentReaction.group(2)));
+            if (location != null) {
+                int split = location.indexOf('/', location.indexOf('/') + 1);
+                HttpUrl url = original.url().newBuilder()
+                        .encodedPath("/api/v1/repos/" + location.substring(0, split)
+                                + location.substring(split))
+                        .build();
+                return chain.proceed(original.newBuilder().url(url).build());
+            }
+        }
+        if (reviewCommentReaction.matches()) {
+            // Review comments are ordinary comments for reactions on Forgejo.
+            original = original.newBuilder().url(original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + reviewCommentReaction.group(1)
+                            + "/issues/comments/" + reviewCommentReaction.group(2)
+                            + (reviewCommentReaction.group(3) != null
+                            ? reviewCommentReaction.group(3) : ""))
+                    .build()).build();
+            originalPath = original.url().encodedPath();
         }
         Matcher prMerge = PULL_MERGE.matcher(originalPath);
         if (prMerge.matches() && "PUT".equalsIgnoreCase(original.method())) {
@@ -635,6 +673,237 @@ public class ForgejoCompatInterceptor implements Interceptor {
             case "REQUEST_CHANGES": review.put("state", "CHANGES_REQUESTED"); break;
             case "REQUEST_REVIEW": review.put("state", "PENDING"); break;
             default: break;
+        }
+    }
+
+    /** Convert a GitHub diff position (index after the first @@ line) to a file line number. */
+    private static int[] positionToLines(String patch, int position) {
+        // returns {newLine, oldLine}; newLine 0 means the target is a removed line
+        int idx = -1;
+        int oldLine = 0;
+        int newLine = 0;
+        for (String line : patch.split("\n", -1)) {
+            if (line.startsWith("@@")) {
+                Matcher m = Pattern.compile("@@ -(\\d+)(?:,\\d+)? \\+(\\d+)").matcher(line);
+                if (m.find()) {
+                    oldLine = Integer.parseInt(m.group(1)) - 1;
+                    newLine = Integer.parseInt(m.group(2)) - 1;
+                }
+                if (idx >= 0) {
+                    idx++;
+                } else {
+                    idx = 0;
+                }
+                continue;
+            }
+            if (idx < 0) {
+                continue;
+            }
+            idx++;
+            char c = line.isEmpty() ? ' ' : line.charAt(0);
+            if (c == '-') {
+                oldLine++;
+            } else if (c == '+') {
+                newLine++;
+            } else {
+                oldLine++;
+                newLine++;
+            }
+            if (idx == position) {
+                return c == '-' ? new int[] { 0, oldLine } : new int[] { newLine, 0 };
+            }
+        }
+        return new int[] { Math.max(position, 1), 0 };
+    }
+
+    private static Response createInlineReviewComment(Chain chain, Request original, String owner,
+            String repo, String number) throws IOException {
+        JSONObject in = new JSONObject();
+        okhttp3.RequestBody oldBody = original.body();
+        if (oldBody != null) {
+            okio.Buffer buffer = new okio.Buffer();
+            oldBody.writeTo(buffer);
+            try {
+                in = new JSONObject(buffer.readUtf8());
+            } catch (JSONException ignored) {
+            }
+        }
+        String path = in.optString("path", "");
+        int position = in.optInt("position", 1);
+        int[] lines = { Math.max(position, 1), 0 };
+        String diffText = fetchPlainText(chain, original,
+                "/api/v1/repos/" + owner + "/" + repo + "/pulls/" + number + ".diff");
+        if (diffText != null) {
+            ParsedFilePatch patch = parseUnifiedDiffPatches(diffText).get(path);
+            if (patch != null) {
+                lines = positionToLines(patch.patch, position);
+            }
+        }
+        try {
+            JSONObject comment = new JSONObject()
+                    .put("body", in.optString("body", ""))
+                    .put("path", path)
+                    .put("new_position", lines[0])
+                    .put("old_position", lines[1]);
+            JSONObject review = new JSONObject()
+                    .put("event", "COMMENT")
+                    .put("body", "")
+                    .put("comments", new JSONArray().put(comment));
+            HttpUrl url = original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + owner + "/" + repo + "/pulls/" + number
+                            + "/reviews")
+                    .query(null)
+                    .build();
+            Response created = chain.proceed(original.newBuilder()
+                    .url(url)
+                    .method("POST", okhttp3.RequestBody.create(JSON, review.toString()))
+                    .build());
+            try {
+                if (!created.isSuccessful() || created.body() == null) {
+                    return created;
+                }
+                JSONObject r = new JSONObject(created.body().string());
+                String reviewId = r.optString("id");
+                // Read the new comment back so the app receives its id.
+                String listPath = "/api/v1/repos/" + owner + "/" + repo + "/pulls/" + number
+                        + "/reviews/" + reviewId + "/comments";
+                String listText = fetchPlainText(chain, original, listPath);
+                JSONArray arr = listText != null ? new JSONArray(listText) : new JSONArray();
+                if (arr.length() == 0) {
+                    return emptyJsonObject(original);
+                }
+                JSONObject c = arr.getJSONObject(0);
+                rememberReviewComment(c, owner, repo, number);
+                JSONObject converted = toGithubReviewComment(c, patchFor(diffText, path));
+                addBodyHtml(chain, original, owner + "/" + repo, converted,
+                        new int[] { MAX_RENDERED_BODIES }, false);
+                return jsonResponse(original, aliasStarFields(converted.toString()));
+            } finally {
+                created.close();
+            }
+        } catch (JSONException e) {
+            return emptyJsonObject(original);
+        }
+    }
+
+    /** Forgejo deletes code comments through their review, so remember where each one lives. */
+    private static final Map<Long, String> REVIEW_COMMENT_LOCATIONS =
+            Collections.synchronizedMap(new HashMap<>());
+
+    private static void rememberReviewComment(JSONObject comment, String owner, String repo,
+            String number) {
+        REVIEW_COMMENT_LOCATIONS.put(comment.optLong("id"), owner + "/" + repo + "/pulls/" + number
+                + "/reviews/" + comment.optLong("pull_request_review_id") + "/comments/"
+                + comment.optLong("id"));
+    }
+
+    private static String patchFor(String diffText, String path) {
+        if (diffText == null) {
+            return null;
+        }
+        ParsedFilePatch p = parseUnifiedDiffPatches(diffText).get(path);
+        return p != null ? p.patch : null;
+    }
+
+    /** Forgejo comment position is a file line number; GitHub's is a diff index. */
+    private static JSONObject toGithubReviewComment(JSONObject c, String patch)
+            throws JSONException {
+        JSONObject out = new JSONObject(c.toString());
+        int newLine = c.optInt("position", 0);
+        int oldLine = c.optInt("original_position", 0);
+        int diffIndex = newLine;
+        if (patch != null) {
+            int idx = -1;
+            int o = 0;
+            int n = 0;
+            for (String line : patch.split("\n", -1)) {
+                if (line.startsWith("@@")) {
+                    Matcher m = Pattern.compile("@@ -(\\d+)(?:,\\d+)? \\+(\\d+)").matcher(line);
+                    if (m.find()) {
+                        o = Integer.parseInt(m.group(1)) - 1;
+                        n = Integer.parseInt(m.group(2)) - 1;
+                    }
+                    idx = idx >= 0 ? idx + 1 : 0;
+                    continue;
+                }
+                if (idx < 0) {
+                    continue;
+                }
+                idx++;
+                char ch = line.isEmpty() ? ' ' : line.charAt(0);
+                if (ch == '-') {
+                    o++;
+                    if (newLine == 0 && o == oldLine) {
+                        diffIndex = idx;
+                        break;
+                    }
+                } else {
+                    n++;
+                    if (ch != '+') {
+                        o++;
+                    }
+                    if (newLine != 0 && n == newLine) {
+                        diffIndex = idx;
+                        break;
+                    }
+                }
+            }
+        }
+        out.put("position", diffIndex);
+        out.put("original_position", diffIndex);
+        JSONObject reactions = new JSONObject().put("url", "").put("total_count", 0);
+        for (String content : REACTION_CONTENTS) {
+            reactions.put(content, 0);
+        }
+        out.put("reactions", reactions);
+        if (!out.has("original_commit_id") || out.optString("original_commit_id").isEmpty()) {
+            out.put("original_commit_id", out.optString("commit_id", ""));
+        }
+        return out;
+    }
+
+    private static Response listInlineReviewComments(Chain chain, Request original, String owner,
+            String repo, String number) throws IOException {
+        String base = "/api/v1/repos/" + owner + "/" + repo + "/pulls/" + number;
+        String reviewsText = fetchPlainText(chain, original, base + "/reviews");
+        if (reviewsText == null) {
+            return emptyJsonArray(original);
+        }
+        try {
+            JSONArray reviews = new JSONArray(reviewsText);
+            String diffText = null;
+            JSONArray out = new JSONArray();
+            for (int i = 0; i < reviews.length(); i++) {
+                JSONObject review = reviews.optJSONObject(i);
+                if (review == null || review.optInt("comments_count", 0) == 0) {
+                    continue;
+                }
+                String text = fetchPlainText(chain, original,
+                        base + "/reviews/" + review.optString("id") + "/comments");
+                if (text == null) {
+                    continue;
+                }
+                if (diffText == null) {
+                    diffText = fetchPlainText(chain, original, base + ".diff");
+                    if (diffText == null) {
+                        diffText = "";
+                    }
+                }
+                JSONArray comments = new JSONArray(text);
+                for (int j = 0; j < comments.length(); j++) {
+                    JSONObject c = comments.optJSONObject(j);
+                    if (c != null) {
+                        rememberReviewComment(c, owner, repo, number);
+                        out.put(toGithubReviewComment(c,
+                                patchFor(diffText, c.optString("path"))));
+                    }
+                }
+            }
+            addBodyHtml(chain, original, owner + "/" + repo, out, new int[] { MAX_RENDERED_BODIES },
+                    false);
+            return jsonResponse(original, aliasStarFields(out.toString()));
+        } catch (JSONException e) {
+            return emptyJsonArray(original);
         }
     }
 
