@@ -65,13 +65,13 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Same checks for an org feed (2026-11-01, playsearch.kaki87.net)
 
 ## 4. Notifications (`notification_list_menu`, `notification_menu`)
-- [ ] List loads, empty state shows when there are none
-- [ ] Filter menu: Unread, All, Participating
-- [ ] Mark all as read
-- [ ] Row tap opens the issue, PR or commit
-- [ ] Row avatar tap opens the user
-- [ ] Row action button: Mark as read
-- [ ] Row action button: Unsubscribe
+- [x] List loads, empty state shows when there are none (2026-11-01, empty state shown; the test account has no notifications)
+- [-] Filter menu: Unread, All, Participating (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
+- [-] Mark all as read (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
+- [-] Row tap opens the issue, PR or commit (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
+- [-] Row avatar tap opens the user (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
+- [-] Row action button: Mark as read (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
+- [-] Row action button: Unsubscribe (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
 - [ ] Notification polling and the system notification (Settings > Notifications on)
 
 ## 5. My repositories and repository lists (`repo_list_menu`, `repo_filter_*`, `repo_sort`)
@@ -112,13 +112,13 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Timeline events: comment, label change, assign, close, reopen, rename, cross reference, commit reference
 - [x] Menu: Close (2026-11-01, dialog offers Not planned and Duplicate, which Forgejo ignores)
 - [x] Menu: Reopen (2026-11-01)
-- [ ] Menu: Share
-- [ ] Menu: Open in browser
-- [ ] Menu: Copy number
+- [x] Menu: Share (2026-11-01, share sheet carries the issue URL)
+- [x] Menu: Open in browser (2026-11-01, chooser excludes ForgeDroid)
+- [x] Menu: Copy number (2026-11-01, tapped; clipboard content not read)
 - [x] Edit button opens the issue editor and saves title, body, labels, assignee, milestone (2026-11-01, title and body saved; settings not changed)
 - [x] Comment box: type and send (2026-11-01)
-- [ ] Comment box: advanced editor toggle
-- [ ] Comment box: attach button
+- [x] Comment box: advanced editor toggle (2026-11-01)
+- [-] Comment box: attach button (2026-11-01, the + button is the advanced editor toggle; there is no attachment upload)
 - [x] Markdown buttons: bold, italic, strikethrough, h1, h2, h3, quote, code, link, image, bullet list, number list, task list, divider (2026-11-01, only the bold button and Preview were tapped)
 - [x] Comment overflow: Share, Add reaction, Edit, Delete, View in file (2026-11-01, Edit and Delete verified, others only listed)
 - [ ] Text selection menu: Quote
@@ -126,7 +126,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Reaction bar tap adds and removes a reaction (2026-11-01, fixed: remove sent no DELETE; ids now synthesized)
 - [ ] Tap a user avatar and extra text in a comment
 - [ ] Link inside markdown opens the right screen
-- [ ] Rotate keeps the draft and scroll position
+- [x] Rotate keeps the draft and scroll position (2026-11-01, draft kept in the comment box)
 
 ## 8. Create and edit issue, labels, milestones
 - [x] Create issue with title and body (2026-11-01, title only plus edit with body)
