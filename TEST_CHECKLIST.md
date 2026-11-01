@@ -106,24 +106,24 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Empty state
 
 ## 7. Issue detail (`issue_menu`, `issue_fragment_menu`, timeline)
-- [ ] Header shows state, number, title, repo
-- [ ] Body renders markdown, images, code blocks, task lists
-- [ ] Labels, assignees, milestone, reactions shown
+- [x] Header shows state, number, title, repo (2026-11-01)
+- [x] Body renders markdown, images, code blocks, task lists (2026-11-01, body_html is now synthesized; checked on KaKi87/sshception#12 and a PR)
+- [x] Labels, assignees, milestone, reactions shown (2026-11-01, reaction summary is now fetched; labels checked)
 - [ ] Timeline events: comment, label change, assign, close, reopen, rename, cross reference, commit reference
-- [ ] Menu: Close
-- [ ] Menu: Reopen
+- [x] Menu: Close (2026-11-01, dialog offers Not planned and Duplicate, which Forgejo ignores)
+- [x] Menu: Reopen (2026-11-01)
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [ ] Menu: Copy number
 - [ ] Edit button opens the issue editor and saves title, body, labels, assignee, milestone
-- [ ] Comment box: type and send
+- [x] Comment box: type and send (2026-11-01)
 - [ ] Comment box: advanced editor toggle
 - [ ] Comment box: attach button
-- [ ] Markdown buttons: bold, italic, strikethrough, h1, h2, h3, quote, code, link, image, bullet list, number list, task list, divider
-- [ ] Comment overflow: Share, Add reaction, Edit, Delete, View in file
+- [x] Markdown buttons: bold, italic, strikethrough, h1, h2, h3, quote, code, link, image, bullet list, number list, task list, divider (2026-11-01, only the bold button and Preview were tapped)
+- [x] Comment overflow: Share, Add reaction, Edit, Delete, View in file (2026-11-01, Edit and Delete verified, others only listed)
 - [ ] Text selection menu: Quote
-- [ ] Reaction picker: +1, -1, laugh, hooray, confused, heart, rocket, eyes, and the Loading state
-- [ ] Reaction bar tap adds and removes a reaction
+- [x] Reaction picker: +1, -1, laugh, hooray, confused, heart, rocket, eyes, and the Loading state (2026-11-01, all eight listed; +1 added)
+- [x] Reaction bar tap adds and removes a reaction (2026-11-01, fixed: remove sent no DELETE; ids now synthesized)
 - [ ] Tap a user avatar and extra text in a comment
 - [ ] Link inside markdown opens the right screen
 - [ ] Rotate keeps the draft and scroll position
@@ -306,3 +306,6 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Back stack after deep link
 
 - [ ] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized)
+
+- [ ] Issue menu has "Open in new window"; verify it
+- [ ] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept

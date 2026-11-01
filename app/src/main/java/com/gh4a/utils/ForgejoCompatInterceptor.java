@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -104,6 +105,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
     private static final Pattern REACTIONS =
             Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern REACTION_DELETE =
+            Pattern.compile("^/api/v1/repos/(.+/reactions)/(\\d+)$");
+    private static final String[] REACTION_CONTENTS = {
+            "+1", "-1", "laugh", "hooray", "confused", "heart", "rocket", "eyes" };
     private static final Pattern ISSUE_TIMELINE =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/issues/([^/]+)/timeline$");
     private static final Pattern CHECK_RUNS =
@@ -171,6 +176,24 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 return orgUser;
             }
         }
+        Matcher reactionDelete = REACTION_DELETE.matcher(originalPath);
+        if (reactionDelete.matches() && "DELETE".equalsIgnoreCase(original.method())) {
+            // Forgejo reactions have no id; delete by content on the collection URL.
+            int index = (int) (Long.parseLong(reactionDelete.group(2)) % 100) - 1;
+            if (index >= 0 && index < REACTION_CONTENTS.length) {
+                try {
+                    String json = new JSONObject().put("content", REACTION_CONTENTS[index]).toString();
+                    HttpUrl url = original.url().newBuilder()
+                            .encodedPath("/api/v1/repos/" + reactionDelete.group(1))
+                            .build();
+                    return chain.proceed(original.newBuilder()
+                            .url(url)
+                            .method("DELETE", okhttp3.RequestBody.create(JSON, json))
+                            .build());
+                } catch (JSONException ignored) {
+                }
+            }
+        }
         Request request;
         Matcher userRepos = USER_REPOS_LIST.matcher(originalPath);
         Matcher orgRepos = ORG_REPOS_LIST.matcher(originalPath);
@@ -211,6 +234,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     && REACTIONS.matcher(path).matches()
                     && "null".equals(bodyString.trim())) {
                 bodyString = "[]";
+            }
+            if (response.isSuccessful() && "GET".equalsIgnoreCase(request.method())
+                    && REACTIONS.matcher(path).matches()) {
+                bodyString = addReactionIds(bodyString);
             }
 
             String totalCountHeader = response.header("X-Total-Count");
@@ -285,6 +312,26 @@ public class ForgejoCompatInterceptor implements Interceptor {
     }
 
 
+    /** Forgejo reactions have no id. Encode user id and content so DELETE can map back. */
+    private static String addReactionIds(String body) throws JSONException {
+        String trimmed = body.trim();
+        if (!trimmed.startsWith("[")) {
+            return body;
+        }
+        JSONArray arr = new JSONArray(trimmed);
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject r = arr.optJSONObject(i);
+            if (r == null || r.has("id")) {
+                continue;
+            }
+            JSONObject user = r.optJSONObject("user");
+            long userId = user != null ? user.optLong("id") : 0;
+            int index = Arrays.asList(REACTION_CONTENTS).indexOf(r.optString("content"));
+            r.put("id", userId * 100 + index + 1);
+        }
+        return arr.toString();
+    }
+
     private static final Pattern BODY_PATHS = Pattern.compile(
             "^/api/v1/repos/([^/]+)/([^/]+)/(issues|pulls|releases|commits|git/commits)(/.*)?$");
     private static final int MAX_RENDERED_BODIES = 40;
@@ -310,22 +357,38 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String trimmed = body.trim();
         Object root = trimmed.startsWith("[") ? new JSONArray(trimmed) : new JSONObject(trimmed);
         int[] budget = { MAX_RENDERED_BODIES };
-        addBodyHtml(chain, request, m.group(1) + "/" + m.group(2), root, budget);
+        addBodyHtml(chain, request, m.group(1) + "/" + m.group(2), root, budget,
+                root instanceof JSONObject);
         return root.toString();
     }
 
     private static void addBodyHtml(Chain chain, Request request, String context, Object node,
-            int[] budget) throws IOException, JSONException {
+            int[] budget, boolean single) throws IOException, JSONException {
         if (node instanceof JSONArray) {
             JSONArray arr = (JSONArray) node;
             for (int i = 0; i < arr.length(); i++) {
-                addBodyHtml(chain, request, context, arr.opt(i), budget);
+                addBodyHtml(chain, request, context, arr.opt(i), budget, false);
             }
         } else if (node instanceof JSONObject) {
             JSONObject obj = (JSONObject) node;
             Object text = obj.opt("body");
             if (text instanceof String && !((String) text).isEmpty() && !obj.has("body_html")) {
                 obj.put("body_html", renderMarkdown(chain, request, context, (String) text, budget));
+            }
+            if (!obj.has("reactions") && budget[0] > 0) {
+                String reactionsPath = null;
+                if (obj.has("id") && obj.has("body")
+                        && (obj.has("issue_url") || obj.has("pull_request_url"))) {
+                    reactionsPath = "issues/comments/" + obj.optLong("id");
+                } else if (single && obj.has("number") && obj.has("title")
+                        && obj.has("state")) {
+                    reactionsPath = "issues/" + obj.optLong("number");
+                }
+                if (reactionsPath != null) {
+                    budget[0]--;
+                    obj.put("reactions", fetchReactionSummary(chain, request,
+                            "/api/v1/repos/" + context + "/" + reactionsPath + "/reactions"));
+                }
             }
             Iterator<String> keys = obj.keys();
             List<Object> children = new ArrayList<>();
@@ -336,9 +399,43 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 }
             }
             for (Object child : children) {
-                addBodyHtml(chain, request, context, child, budget);
+                addBodyHtml(chain, request, context, child, budget, false);
             }
         }
+    }
+
+    /** GitHub embeds reaction counts in issue and comment JSON. Forgejo does not. */
+    private static JSONObject fetchReactionSummary(Chain chain, Request request, String path)
+            throws IOException, JSONException {
+        JSONObject summary = new JSONObject().put("url", "").put("total_count", 0);
+        for (String content : REACTION_CONTENTS) {
+            summary.put(content, 0);
+        }
+        Response response = chain.proceed(request.newBuilder()
+                .url(request.url().newBuilder().encodedPath(path).query(null).build())
+                .get()
+                .build());
+        try {
+            if (!response.isSuccessful() || response.body() == null) {
+                return summary;
+            }
+            String text = response.body().string().trim();
+            if (!text.startsWith("[")) {
+                return summary;
+            }
+            JSONArray arr = new JSONArray(text);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject r = arr.optJSONObject(i);
+                if (r == null || !summary.has(r.optString("content"))) {
+                    continue;
+                }
+                summary.put(r.optString("content"), summary.optInt(r.optString("content")) + 1);
+                summary.put("total_count", summary.optInt("total_count") + 1);
+            }
+        } finally {
+            response.close();
+        }
+        return summary;
     }
 
     private static String renderMarkdown(Chain chain, Request request, String context,
