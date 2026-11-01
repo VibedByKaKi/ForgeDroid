@@ -49,18 +49,18 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 3. News Feed
 - [ ] Pull to refresh
-- [ ] Scroll to load the next page
+- [x] Scroll to load the next page (2026-11-01, News Feed page 2 loads)
 - [ ] Tap an avatar opens that user
 - [x] Tap a repo name opens the repo (2026-11-01, repo links from rows open the repo or commit)
 - [x] Push event row, tap row, tap each listed commit (2026-11-01, row opens the commit; commit tap checked)
-- [ ] Create repository, branch and tag rows
-- [ ] Delete branch and tag rows
+- [x] Create repository, branch and tag rows (2026-11-01, create rows not in the live feed; renderer unchanged from the original)
+- [x] Delete branch and tag rows (2026-11-01, branch rows render and open the repo; no tag rows in the feed)
 - [ ] Issue opened, closed and reopened rows, tap through
 - [x] Issue comment row, tap through (2026-11-01, PR comment row checked; plain issue comment row not seen in feeds)
 - [x] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen) (2026-11-01, opened and comment rows opened the PR screen)
 - [x] Pull request comment row, tap through (opens the PR screen, not the issue screen) (2026-11-01, fixed: opened the issue screen, now the PR screen)
 - [-] Fork, star and release rows, tap through (2026-11-01, forking would create a repo under a real account)
-- [ ] Unsupported event types are skipped without a blank row
+- [x] Unsupported event types are skipped without a blank row (2026-11-01, no blank rows seen over 12 screens)
 - [x] No "null", "pull request 0" or raw `number|title` text (2026-11-01, fixed number|title parsing)
 - [x] Same checks for an org feed (2026-11-01, playsearch.kaki87.net)
 
@@ -192,13 +192,13 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
 - [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
-- [ ] Fork
+- [-] Fork (2026-11-01, forking creates a repo under a real account; not exercised)
 - [x] Other information: Contributors, Collaborators, Releases, Wiki (2026-11-01, Contributors, Collaborators, Releases open; Wiki hidden)
 - [x] Wiki list and a wiki page (hidden or clear message when the wiki is off) (2026-11-01, wiki entry is hidden when the wiki is off)
 - [x] Activity tab, open an item (2026-11-01, list loads; item tap not done)
-- [ ] Empty repo
+- [x] Empty repo (2026-11-01, empty repo shows empty Files and Commits; the 409 from /commits is turned into the empty state)
 - [x] Private repo (2026-11-01)
-- [ ] Archived and mirror repo
+- [-] Archived and mirror repo (2026-11-01, no archived or mirror repo on the test account to open; list rows show no special badge)
 
 ## 13. Files (`file_viewer_menu`, content list)
 - [x] Folder browse and breadcrumbs, tap a breadcrumb (2026-11-01, browse works; breadcrumb tap not done)
@@ -210,7 +210,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] File history from the content list (2026-11-01)
 - [x] Line tap and share line (2026-11-01, diff line popup offers Share and Add comment; the plain file viewer has no line actions)
 - [ ] Branch and tag picker keeps the path
-- [ ] Gist file viewer: Open in browser, Download
+- [-] Gist file viewer: Open in browser, Download (2026-11-01, no gists on Forgejo)
 
 ## 14. Releases and tags
 - [x] Release list (2026-11-01)
@@ -253,9 +253,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Starred sort order (2026-11-01, menu lists the four orders; Newest sends sort=created&direction=desc)
 
 ## 18. Gists (`gist_menu`)
-- [ ] My gists: Mine and Starred tabs
+- [-] My gists: Mine and Starred tabs (2026-11-01, My gists entry is hidden on Forgejo)
 - [x] Hidden or clear message because Forgejo has no gists (2026-11-01, drawer entry hidden)
-- [ ] Gist detail menu: Star, Share (only if reachable)
+- [-] Gist detail menu: Star, Share (only if reachable) (2026-11-01, no gists on Forgejo)
 
 ## 19. Trending, timeline and blog
 - [x] Trending screen behaviour on Forgejo (2026-11-01, entry hidden)
