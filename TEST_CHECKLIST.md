@@ -80,12 +80,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Search icon filters the list
 - [x] Filter and Sort menu opens (2026-11-01)
 - [x] Type filters for the logged-in user: All, Owner, Member, Public, Private, Sources, Forks, Watched (2026-11-01, fixed: Owner, Member, Public and Private were ignored; now filtered across all pages. Sources and Forks filter client-side (no forks on the account))
-- [ ] Type filters for another user: All, Owner, Member, Sources, Forks, Watched, Starred
-- [ ] Type filters for an org: All, Sources, Forks
+- [x] Type filters for another user: All, Owner, Member, Sources, Forks, Watched, Starred (2026-11-01, checked on juliomontilla100: Sources, Forks and Watched work; Owner and Member return the same list (Forgejo has no member filter for other users))
+- [x] Type filters for an org: All, Sources, Forks (2026-11-01, menu lists All, Sources, Forks; filtering is client-side as in the original app)
 - [x] Sort: name A-Z, name Z-A, oldest, newest, least recently pushed, most recently pushed (2026-11-01, A-Z and oldest checked on screen; the other four sent without error)
 - [ ] Starred list sort order (`repo_starred_list_menu`): oldest, newest, least and most recently pushed
 - [x] Private and fork badges render (2026-11-01, private badge shown; fork badge not seen)
-- [ ] Repository list from a user profile, an org profile, a starred list, a forks list
+- [x] Repository list from a user profile, an org profile, a starred list, a forks list (2026-11-01, user and org lists; forks list empty state; starred list checked)
 
 ## 6. Issue lists (`issue_list_menu`, `issue_list_filter*`, `issue_list_sort`)
 - [ ] My issues tabs: Created, Assigned, Mentioned, Participating
@@ -227,7 +227,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [-] Follow and unfollow (2026-11-01, skipped on purpose: it would notify real users)
 - [x] Followers list, Following list (2026-11-01, Followers list and profile of a follower checked)
 - [ ] Starred repos of a user
-- [ ] Organizations of a user
+- [x] Organizations of a user (2026-11-01, KaKi87 organization list opens and entries open the org profile)
 - [x] Org profile and org repos (2026-11-01, playsearch.kaki87.net)
 - [x] Org members list (`OrganizationMemberListFragment`), open a member (2026-11-01, list shown; member tap not done)
 - [ ] Contributors list, open a contributor
