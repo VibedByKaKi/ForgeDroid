@@ -188,7 +188,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Menu: Share (2026-11-01, share sheet opens with the instance URL)
 - [x] Menu: Open in browser (2026-11-01, external chooser excludes the app)
 - [-] Menu: Search code and open a result (2026-11-01, menu item removed: no code search API)
-- [!] Menu: Download code as ZIP (2026-11-01, URL and token header are right; git.kaki87.net archive requests still hang for 40 s even with curl (server side), retried 14:25)
+- [-] Menu: Download code as ZIP (2026-11-01, the app requests /archive/{ref}.zip with the token like the Forgejo web UI, but git.kaki87.net never answers any archive request, even for a one-file repo and from curl after 90 s; not an app fault. Retest when the server is fixed)
 - [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
 - [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
