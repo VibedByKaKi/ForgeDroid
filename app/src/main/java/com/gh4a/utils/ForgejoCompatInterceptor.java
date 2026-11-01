@@ -1,5 +1,6 @@
 package com.gh4a.utils;
 
+import android.net.Uri;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -105,6 +106,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
     private static final Pattern REACTIONS =
             Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern LABEL_BY_NAME =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/labels/([^/\\d][^/]*|\\d*[^/\\d][^/]*)$");
     private static final Pattern COLLABORATORS_LIST =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/collaborators$");
     private static final Pattern RELEASE_REACTIONS =
@@ -181,6 +184,19 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Response orgUser = tryOrgAsGitHubUser(chain, original, singleUser.group(1));
             if (orgUser != null) {
                 return orgUser;
+            }
+        }
+        Matcher labelByName = LABEL_BY_NAME.matcher(originalPath);
+        if (labelByName.matches() && !"GET".equalsIgnoreCase(original.method())) {
+            // GitHub addresses labels by name, Forgejo by numeric id. Resolve the id first.
+            long labelId = findLabelId(chain, original, labelByName.group(1),
+                    labelByName.group(2), Uri.decode(labelByName.group(3)));
+            if (labelId > 0) {
+                HttpUrl url = original.url().newBuilder()
+                        .encodedPath("/api/v1/repos/" + labelByName.group(1) + "/"
+                                + labelByName.group(2) + "/labels/" + labelId)
+                        .build();
+                return chain.proceed(original.newBuilder().url(url).build());
             }
         }
         Matcher reactionDelete = REACTION_DELETE.matcher(originalPath);
@@ -337,6 +353,39 @@ public class ForgejoCompatInterceptor implements Interceptor {
             r.put("id", userId * 100 + index + 1);
         }
         return arr.toString();
+    }
+
+    private static long findLabelId(Chain chain, Request original, String owner, String repo,
+            String name) throws IOException {
+        for (int page = 1; page <= 10; page++) {
+            HttpUrl url = original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + owner + "/" + repo + "/labels")
+                    .query(null)
+                    .addQueryParameter("page", String.valueOf(page))
+                    .addQueryParameter("limit", "50")
+                    .build();
+            Response response = chain.proceed(original.newBuilder().url(url).get().build());
+            try {
+                if (!response.isSuccessful() || response.body() == null) {
+                    return 0;
+                }
+                JSONArray arr = new JSONArray(response.body().string());
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject label = arr.optJSONObject(i);
+                    if (label != null && name.equals(label.optString("name"))) {
+                        return label.optLong("id");
+                    }
+                }
+                if (arr.length() < 50) {
+                    return 0;
+                }
+            } catch (JSONException e) {
+                return 0;
+            } finally {
+                response.close();
+            }
+        }
+        return 0;
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(

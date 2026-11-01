@@ -149,7 +149,7 @@ public class IssueLabelAdapter extends
         }
 
         assignColor(holder, label.editedColor != null ? label.editedColor : label.color());
-        holder.label.setText(EmojiParser.parseToUnicode(label.name()));
+        holder.label.setText(label.name() != null ? EmojiParser.parseToUnicode(label.name()) : "");
         holder.editor.setText(label.editedName != null ? label.editedName : label.name());
     }
 

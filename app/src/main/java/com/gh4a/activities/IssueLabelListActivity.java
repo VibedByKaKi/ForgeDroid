@@ -286,7 +286,11 @@ public class IssueLabelListActivity extends BaseActivity implements
         String errorMessage = getString(R.string.issue_error_delete_label, label.base().name());
         IssueLabelService service = ServiceFactory.get(IssueLabelService.class, false);
         service.deleteLabel(mRepoOwner, mRepoName, label.base().name())
-                .map(ApiHelpers::throwOnFailure)
+                // Forgejo answers 204 with no body, so do not map the null body.
+                .map(response -> {
+                    ApiHelpers.throwOnFailure(response);
+                    return true;
+                })
                 .compose(RxUtils.wrapForBackgroundTask(this, R.string.deleting_msg, errorMessage))
                 .subscribe(result -> {
                     loadLabels(true);

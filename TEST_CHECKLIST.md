@@ -98,7 +98,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Filter by label
 - [ ] Filter by assignee
 - [ ] Filter by participating status
-- [ ] Manage labels (collaborator menu)
+- [x] Manage labels (collaborator menu) (2026-11-01)
 - [ ] Manage milestones (collaborator menu)
 - [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
 - [ ] Same checks for the pull request list
@@ -132,8 +132,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Create issue with title and body (2026-11-01, title only plus edit with body)
 - [x] Create issue with labels, assignee, milestone chosen (2026-11-01, assignee chosen; repo has no labels or milestones; assignee list fixed (was empty))
 - [x] Validation error for an empty title (2026-11-01)
-- [ ] Label list, create, edit, delete label
-- [ ] Label color picker
+- [x] Label list, create, edit, delete label (2026-11-01, fixed: new label crashed the list (null name), edit and delete used the name instead of the id, delete failed on the empty 204 body)
+- [x] Label color picker (2026-11-01, preset red chosen; custom color button not used)
 - [ ] Milestone list: open and closed tabs
 - [ ] Create milestone with due date
 - [ ] Edit milestone, Close, Reopen, Delete (`edit_milestone_menu`)
