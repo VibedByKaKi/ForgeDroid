@@ -351,8 +351,8 @@ public class SearchFragment extends PagedDataBaseFragment<Object> implements
 
         private final int[][] mResources = new int[][] {
             { R.string.search_type_repo, R.drawable.menu_search_repos, R.drawable.icon_repositories },
-            { R.string.search_type_user, R.drawable.menu_search_users, R.drawable.search_users },
-            { R.string.search_type_code, R.drawable.menu_search_code, R.drawable.search_code }
+            { R.string.search_type_user, R.drawable.menu_search_users, R.drawable.search_users }
+            // Forgejo has no code search API, so the code type is not offered.
         };
 
         private SearchTypeAdapter(Context context, Context popupContext) {

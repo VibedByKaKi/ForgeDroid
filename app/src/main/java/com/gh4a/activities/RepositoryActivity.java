@@ -267,6 +267,8 @@ public class RepositoryActivity extends BaseFragmentPagerActivity implements
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
+        // Forgejo has no code search API.
+        menu.removeItem(R.id.search);
         if (mRepository == null) {
             menu.removeItem(R.id.ref);
             menu.removeItem(R.id.bookmark);

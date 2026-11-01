@@ -187,7 +187,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
-- [ ] Menu: Search code and open a result
+- [-] Menu: Search code and open a result (2026-11-01, menu item removed: no code search API)
 - [!] Menu: Download code as ZIP (2026-11-01, fixed URL (/archive/{ref}.zip) and token header, but git.kaki87.net hangs on every archive request even with curl; retry later)
 - [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
@@ -237,11 +237,11 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] User not found shows a readable error
 
 ## 16. Search (`search`)
-- [ ] Type selector: repositories, users, issues, pull requests, code
+- [x] Type selector: repositories, users, issues, pull requests, code (2026-11-01, Repository and User only; Code removed because Forgejo has no code search API)
 - [ ] Submit search with keyboard and with the search icon
 - [ ] Open a result of each type
 - [ ] Empty result message
-- [ ] Exact user and org name search
+- [x] Exact user and org name search (2026-11-01, exact user is in the list but ranked second behind a fuzzy match)
 - [ ] Pagination
 - [ ] Search history or suggestions if present
 
