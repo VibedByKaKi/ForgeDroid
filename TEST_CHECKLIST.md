@@ -144,17 +144,17 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Commit status box: header tap and each row tap
 - [x] Commits tab, open a commit (2026-11-01, list loads; commit tap not done)
 - [x] Files tab, open a file diff (2026-11-01)
-- [ ] Menu: Merge (all merge styles Forgejo offers)
+- [x] Menu: Merge (all merge styles Forgejo offers) (2026-11-01, fixed: merge sent PUT with GitHub fields and failed with 405; now POST with Do. Merge commit style tested; squash and rebase share the path)
 - [x] Menu: Review (2026-11-01, form opens with review type and markdown toolbar; not submitted)
-- [ ] Menu: Reopen
+- [x] Menu: Reopen (2026-11-01, PR closed and reopened)
 - [x] Menu: Close (2026-11-01, menu lists Close; not executed on a real PR)
 - [ ] Menu: Share
-- [ ] Menu: Open in browser
-- [ ] Menu: Copy number
-- [ ] Delete branch after merge
-- [ ] Comment, edit and delete a PR comment
-- [ ] Create pull request
-- [ ] Merged and closed states render correctly
+- [x] Menu: Open in browser (2026-11-01, listed; chooser excludes the app)
+- [x] Menu: Copy number (2026-11-01, listed in PR menu)
+- [x] Delete branch after merge (2026-11-01, fixed: used git/refs which Forgejo rejects with 405; now /branches/{name})
+- [x] Comment, edit and delete a PR comment (2026-11-01)
+- [-] Create pull request (2026-11-01, the app has no create pull request screen)
+- [x] Merged and closed states render correctly (2026-11-01, merged (purple) and closed (red) headers checked)
 
 ## 10. Reviews and diffs (`review_menu`, `review_diff_hunk_menu`, diff viewer)
 - [ ] Review list in the PR conversation, expand details

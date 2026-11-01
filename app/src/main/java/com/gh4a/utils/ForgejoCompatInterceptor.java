@@ -109,6 +109,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
     private static final Pattern REACTIONS =
             Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern REF_DELETE =
+            Pattern.compile("^/api/v1/repos/([^/]+/[^/]+)/git/refs/(?:heads|tags)(?:/|%2F)(.+)$");
+    private static final Pattern PULL_MERGE =
+            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/merge$");
     private static final Pattern LABEL_BY_NAME =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/labels/([^/\\d][^/]*|\\d*[^/\\d][^/]*)$");
     private static final Pattern REPO_ISSUES_LIST =
@@ -192,6 +196,19 @@ public class ForgejoCompatInterceptor implements Interceptor {
             if (orgUser != null) {
                 return orgUser;
             }
+        }
+        Matcher refDelete = REF_DELETE.matcher(original.url().encodedPath());
+        if (refDelete.matches() && "DELETE".equalsIgnoreCase(original.method())) {
+            // GitHub deletes refs at git/refs/heads/{name}; Forgejo uses /branches/{name}.
+            HttpUrl url = original.url().newBuilder()
+                    .encodedPath("/api/v1/repos/" + refDelete.group(1) + "/branches/"
+                            + refDelete.group(2))
+                    .build();
+            return chain.proceed(original.newBuilder().url(url).build());
+        }
+        Matcher prMerge = PULL_MERGE.matcher(originalPath);
+        if (prMerge.matches() && "PUT".equalsIgnoreCase(original.method())) {
+            return forwardPullMerge(chain, original);
         }
         Matcher labelByName = LABEL_BY_NAME.matcher(originalPath);
         if (labelByName.matches() && !"GET".equalsIgnoreCase(original.method())) {
@@ -535,6 +552,54 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
         m.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * GitHub merges with PUT {merge_method, commit_title, commit_message} and reads
+     * {merged: true}. Forgejo uses POST {Do, MergeTitleField, MergeMessageField} and
+     * answers with an empty 200.
+     */
+    private static Response forwardPullMerge(Chain chain, Request original) throws IOException {
+        JSONObject in = new JSONObject();
+        okhttp3.RequestBody oldBody = original.body();
+        if (oldBody != null) {
+            okio.Buffer buffer = new okio.Buffer();
+            oldBody.writeTo(buffer);
+            try {
+                in = new JSONObject(buffer.readUtf8());
+            } catch (JSONException ignored) {
+            }
+        }
+        String method = in.optString("merge_method", "merge");
+        JSONObject out = new JSONObject();
+        try {
+            out.put("Do", method.equals("rebase") ? "rebase-merge" : method);
+            if (in.has("commit_title") && !in.isNull("commit_title")
+                    && !in.optString("commit_title").isEmpty()) {
+                out.put("MergeTitleField", in.optString("commit_title"));
+            }
+            if (in.has("commit_message") && !in.isNull("commit_message")
+                    && !in.optString("commit_message").isEmpty()) {
+                out.put("MergeMessageField", in.optString("commit_message"));
+            }
+        } catch (JSONException e) {
+            return chain.proceed(original);
+        }
+        Response response = chain.proceed(original.newBuilder()
+                .method("POST", okhttp3.RequestBody.create(JSON, out.toString()))
+                .build());
+        if (!response.isSuccessful()) {
+            return response;
+        }
+        response.close();
+        return new Response.Builder()
+                .request(original)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(ResponseBody.create(JSON,
+                        "{\"merged\":true,\"message\":\"Pull Request successfully merged\",\"sha\":\"\"}"))
+                .build();
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(
