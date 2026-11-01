@@ -316,9 +316,13 @@ public abstract class EventListFragment extends PagedDataBaseFragment<GitHubEven
             case ReleaseEvent: {
                 ReleasePayload payload = (ReleasePayload) event.payload();
                 Release release = payload.release();
-                if (release != null) {
+                if (release != null && release.id() != null) {
                     intent = ReleaseInfoActivity.makeIntent(getActivity(),
                             repoOwner, repoName, release.id());
+                } else if (release != null && release.tagName() != null) {
+                    // Forgejo feed releases carry no id; open by tag.
+                    intent = ReleaseInfoActivity.makeIntent(getActivity(),
+                            repoOwner, repoName, release.tagName());
                 }
                 break;
             }

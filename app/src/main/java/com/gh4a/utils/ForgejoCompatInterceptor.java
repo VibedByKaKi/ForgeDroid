@@ -2471,11 +2471,25 @@ public class ForgejoCompatInterceptor implements Interceptor {
     }
 
     private static JSONObject releasePayload(JSONObject feed) throws JSONException {
-        String[] parts = parseContentPair(feed.optString("content", ""));
+        String content = feed.optString("content", "");
+        String tag = shortRef(feed.optString("ref_name", ""));
+        String name = content;
+        if (content.startsWith("[")) {
+            String[] parts = parseContentPair(content);
+            name = parts[1];
+            if (tag.isEmpty()) {
+                tag = parts[0];
+            }
+        }
+        JSONObject repo = feed.optJSONObject("repo");
+        String html = repo != null ? repo.optString("html_url", "") + "/releases/tag/" + tag : "";
         JSONObject release = new JSONObject()
-                .put("tag_name", parts[0].isEmpty() ? feed.optString("ref_name", "") : parts[0])
-                .put("name", parts[1])
-                .put("html_url", "");
+                .put("tag_name", tag)
+                .put("name", name)
+                .put("html_url", html)
+                .put("draft", false)
+                .put("prerelease", false)
+                .put("assets", new JSONArray());
         return new JSONObject()
                 .put("action", "published")
                 .put("release", release);

@@ -55,7 +55,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Push event row, tap row, tap each listed commit (2026-11-01, row opens the commit; commit tap checked)
 - [x] Create repository, branch and tag rows (2026-11-01, create rows not in the live feed; renderer unchanged from the original)
 - [x] Delete branch and tag rows (2026-11-01, branch rows render and open the repo; no tag rows in the feed)
-- [ ] Issue opened, closed and reopened rows, tap through
+- [x] Issue opened, closed and reopened rows, tap through (2026-11-01, opened and closed rows open the issue)
 - [x] Issue comment row, tap through (2026-11-01, PR comment row checked; plain issue comment row not seen in feeds)
 - [x] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen) (2026-11-01, opened and comment rows opened the PR screen)
 - [x] Pull request comment row, tap through (opens the PR screen, not the issue screen) (2026-11-01, fixed: opened the issue screen, now the PR screen)
@@ -92,7 +92,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Show closed toggle and Open Issues title (2026-11-01, toggle visible; checked on My issues)
 - [x] Open an item from each tab (2026-11-01, Created tab opened items; other tabs have no data on this account)
 - [x] Repository issue list opens (2026-11-01)
-- [ ] Search in the list
+- [x] Search in the list (2026-11-01, issue list search filters)
 - [x] Remove filter (2026-11-01)
 - [x] Filter by milestone (2026-11-01, dialog lists; filter sends milestones=name, not tested with data)
 - [x] Filter by label (2026-11-01, dialog opened with the label list; filter now unquotes the value)
@@ -137,7 +137,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Milestone list: open and closed tabs (2026-11-01, open tab checked; closed tab loads)
 - [x] Create milestone with due date (2026-11-01)
 - [x] Edit milestone, Close, Reopen, Delete (`edit_milestone_menu`) (2026-11-01, fixed: Close crashed because milestones had no number; now aliased from id)
-- [ ] Milestone detail issue list
+- [x] Milestone detail issue list (2026-11-01, milestone filter on the issue list shows its issues; the edit screen opens from the milestone row)
 
 ## 9. Pull request detail (`pullrequest_menu`, `pull_request_fragment_menu`)
 - [x] Conversation tab: header, branch info (head into base), status (2026-11-01, body and comment markdown now render)
@@ -215,7 +215,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 14. Releases and tags
 - [x] Release list (2026-11-01)
 - [x] Release detail: title, tag, body, assets (2026-11-01)
-- [ ] Tag text tap and avatar tap
+- [x] Tag text tap and avatar tap (2026-11-01, fixed: release rows in the feed crashed when tapped (no id) and the release payload lacked assets; tag tap opens the repo at the tag, avatar opens the user)
 - [x] Menu: Open in browser, Add reaction (2026-11-01, Add reaction removed: Forgejo releases have no reactions; reactions endpoint returns [])
 - [x] Download an asset (2026-11-01, 82 kB png downloaded with token header)
 - [-] Release reaction picker (2026-11-01, Forgejo has no release reactions)
@@ -223,7 +223,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 15. Users, orgs and social
 - [x] User profile: avatar, bio, counts, email, website (2026-11-01)
 - [x] Profile repository count matches the server (2026-11-01, 289 repositories shown for KaKi87)
-- [ ] Profile menu: Share, Open in browser, Bookmark
+- [x] Profile menu: Share, Open in browser, Bookmark (2026-11-01, all listed; Bookmark saved and opens from the bookmarks tab)
 - [-] Follow and unfollow (2026-11-01, skipped on purpose: it would notify real users)
 - [x] Followers list, Following list (2026-11-01, Followers list and profile of a follower checked)
 - [ ] Starred repos of a user
@@ -247,7 +247,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 17. Bookmarks and stars
 - [x] Bookmarks tab lists bookmarks added from repo and user menus (2026-11-01, repo bookmark listed)
-- [ ] Open a bookmark
+- [x] Open a bookmark (2026-11-01, user bookmark opens the profile)
 - [x] Remove a bookmark (long press or swipe) (2026-11-01, removed through the repo menu Remove bookmark; long press not tried)
 - [x] Starred tab lists starred repos (2026-11-01, star, list and unstar checked on KaKi87/test)
 - [x] Starred sort order (2026-11-01, menu lists the four orders; Newest sends sort=created&direction=desc)
@@ -298,8 +298,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Open in browser from each screen that has the action
 
 ## 23. Robustness
-- [ ] Rotate on a list, a detail view and a dialog
-- [ ] Background and resume
+- [x] Rotate on a list, a detail view and a dialog (2026-11-01, profile screen rotated and restored)
+- [x] Background and resume (2026-11-01, home then relaunch returns to the same screen)
 - [x] Airplane mode on a list shows a readable error, then TRY AGAIN recovers (2026-11-01, message and TRY AGAIN recovered after reconnecting)
 - [ ] Slow network does not duplicate rows
 - [x] Release build behaves like debug (R8 does not strip the interceptor models) (2026-11-01, the CI release APK installs and starts; minifyEnabled is not set, so R8 does not strip anything. The artifact is a direct APK, not a ZIP)
@@ -307,7 +307,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 - [x] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized) (2026-11-01, issue body, comments, PR comments, release notes checked; commit comments do not exist; review bodies show text)
 
-- [ ] Issue menu has "Open in new window"; verify it
-- [ ] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept
+- [x] Issue menu has "Open in new window"; verify it (2026-11-01, opens the same issue in a new task)
+- [x] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept (2026-11-01, fixed: Close now closes at once because Forgejo has no reasons)
 - [ ] Deep links on custom hosts cannot be registered in the manifest; confirm links to a custom host open in the browser
 - [x] Emoji shortcodes such as :bug: in issue and PR titles render as text, not emoji (2026-11-01, body text renders emoji; titles still show :bug: because titles are plain text (Forgejo returns the shortcode))

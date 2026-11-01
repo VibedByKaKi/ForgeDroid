@@ -245,7 +245,8 @@ public class IssueActivity extends BaseActivity implements
         switch (itemId) {
             case R.id.issue_close:
                 if (checkForAuthOrExit()) {
-                    showCloseReasonDialog();
+                    // Forgejo has no close reasons, so close right away.
+                    closeIssue(IssueStateReason.Completed);
                 }
                 return true;
             case R.id.issue_reopen:
