@@ -287,12 +287,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Empty view text on every list
 
 ## 22. Deep links and intents
-- [ ] Forgejo repo URL
-- [ ] Issue URL
-- [ ] PR URL
-- [ ] Commit URL
+- [x] Forgejo repo URL (2026-11-01, fixed: manifest only had github.com; now the seven preset hosts)
+- [x] Issue URL (2026-11-01, resolves to the issue screen; tested via PR URL path)
+- [x] PR URL (2026-11-01)
+- [x] Commit URL (2026-11-01)
 - [ ] File URL on a branch
-- [ ] User and org URL
+- [x] User and org URL (2026-11-01)
 - [ ] Release URL
 - [ ] Share text into the app
 - [ ] Open in browser from each screen that has the action
@@ -309,3 +309,5 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 - [ ] Issue menu has "Open in new window"; verify it
 - [ ] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept
+- [ ] Deep links on custom hosts cannot be registered in the manifest; confirm links to a custom host open in the browser
+- [ ] Emoji shortcodes such as :bug: in issue and PR titles render as text, not emoji

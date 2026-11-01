@@ -153,22 +153,46 @@
                 <category
                     android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:host="github.com"
+                    android:host="codeberg.org"
                     android:scheme="https" />
                 <data
-                    android:host="gist.github.com"
+                    android:host="gitdab.com"
                     android:scheme="https" />
                 <data
-                    android:host="blog.github.com"
+                    android:host="git.kaki87.net"
                     android:scheme="https" />
                 <data
-                    android:host="github.com"
+                    android:host="bolha.dev"
+                    android:scheme="https" />
+                <data
+                    android:host="git.gay"
+                    android:scheme="https" />
+                <data
+                    android:host="opencommit.eu"
+                    android:scheme="https" />
+                <data
+                    android:host="sij.ai"
+                    android:scheme="https" />
+                <data
+                    android:host="codeberg.org"
                     android:scheme="http" />
-				<data
-                    android:host="gist.github.com"
+                <data
+                    android:host="gitdab.com"
                     android:scheme="http" />
                 <data
-                    android:host="blog.github.com"
+                    android:host="git.kaki87.net"
+                    android:scheme="http" />
+                <data
+                    android:host="bolha.dev"
+                    android:scheme="http" />
+                <data
+                    android:host="git.gay"
+                    android:scheme="http" />
+                <data
+                    android:host="opencommit.eu"
+                    android:scheme="http" />
+                <data
+                    android:host="sij.ai"
                     android:scheme="http" />
             </intent-filter>
         </activity>

@@ -26,6 +26,7 @@ import com.gh4a.activities.TrendingActivity;
 import com.gh4a.activities.UserActivity;
 import com.gh4a.activities.WikiListActivity;
 import com.gh4a.activities.home.HomeActivity;
+import com.gh4a.utils.ApiHelpers;
 import com.gh4a.utils.IntentUtils;
 import com.gh4a.utils.StringUtils;
 
@@ -59,6 +60,8 @@ public class LinkParser {
     @Nullable
     public static ParseResult parseUri(FragmentActivity activity, @NonNull Uri uri,
             IntentUtils.InitialCommentMarker initialCommentFallback) {
+        // Map links on the active Forgejo instance onto the synthetic github.com authority.
+        uri = ApiHelpers.normalizeUri(uri);
         List<String> parts = new ArrayList<>(uri.getPathSegments());
 
         if ("gist.github.com".equals(uri.getHost())) {
