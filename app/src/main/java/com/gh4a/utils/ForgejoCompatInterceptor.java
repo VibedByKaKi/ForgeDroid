@@ -108,6 +108,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/.+/reactions$");
     private static final Pattern LABEL_BY_NAME =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/labels/([^/\\d][^/]*|\\d*[^/\\d][^/]*)$");
+    private static final Pattern QUERY_TOKEN =
+            Pattern.compile("[^\\s\"]+:\"[^\"]*\"|\"[^\"]*\"|\\S+");
     private static final Pattern COLLABORATORS_LIST =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/collaborators$");
     private static final Pattern RELEASE_REACTIONS =
@@ -386,6 +388,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
         return 0;
+    }
+
+    private static String unquote(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(
@@ -1259,8 +1268,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String repo = null;
         String assignee = null;
         String label = null;
+        String author = null;
+        String mentionedUser = null;
+        String milestone = null;
         if (q != null) {
-            for (String token : q.trim().split("\\s+")) {
+            Matcher tokens = QUERY_TOKEN.matcher(q.trim());
+            while (tokens.find()) {
+                String token = tokens.group();
                 if (token.equals("is:issue") || token.equals("is:issues")
                         || token.equals("type:issue") || token.equals("type:issues")) {
                     type = "issues";
@@ -1274,22 +1288,23 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     state = "closed";
                 } else if (token.startsWith("author:")) {
                     created = true;
+                    author = unquote(token.substring("author:".length()));
                 } else if (token.startsWith("assignee:")) {
                     assigned = true;
-                    assignee = token.substring("assignee:".length());
+                    assignee = unquote(token.substring("assignee:".length()));
                 } else if (token.startsWith("mentions:")) {
                     mentioned = true;
+                    mentionedUser = unquote(token.substring("mentions:".length()));
                 } else if (token.startsWith("involves:") || token.startsWith("-involves:")) {
                     // Closest single-flag approximation on Forgejo cross-repo search.
                     created = true;
                 } else if (token.startsWith("label:")) {
-                    label = token.substring("label:".length());
+                    label = unquote(token.substring("label:".length()));
                 } else if (token.startsWith("milestone:")) {
-                    // Forgejo list-issues wants a milestone id; keep as text search fallback.
-                    if (leftover.length() > 0) {
-                        leftover.append(' ');
-                    }
-                    leftover.append(token.substring("milestone:".length()));
+                    milestone = unquote(token.substring("milestone:".length()));
+                } else if (token.startsWith("no:")) {
+                    // Forgejo has no "unset" filter for assignee, label or milestone.
+                    continue;
                 } else if (token.startsWith("repo:")) {
                     String full = token.substring("repo:".length());
                     int slash = full.indexOf('/');
@@ -1313,7 +1328,16 @@ public class ForgejoCompatInterceptor implements Interceptor {
             urlBuilder.setQueryParameter("type", type);
             urlBuilder.setQueryParameter("state", state);
             if (assignee != null && !assignee.isEmpty()) {
-                urlBuilder.setQueryParameter("assignee", assignee);
+                urlBuilder.setQueryParameter("assigned_by", assignee);
+            }
+            if (author != null && !author.isEmpty()) {
+                urlBuilder.setQueryParameter("created_by", author);
+            }
+            if (mentionedUser != null && !mentionedUser.isEmpty()) {
+                urlBuilder.setQueryParameter("mentioned_by", mentionedUser);
+            }
+            if (milestone != null && !milestone.isEmpty()) {
+                urlBuilder.setQueryParameter("milestones", milestone);
             }
             if (label != null && !label.isEmpty()) {
                 urlBuilder.setQueryParameter("labels", label);

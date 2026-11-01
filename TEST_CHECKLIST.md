@@ -93,17 +93,17 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Open an item from each tab
 - [x] Repository issue list opens (2026-11-01)
 - [ ] Search in the list
-- [ ] Remove filter
-- [ ] Filter by milestone
-- [ ] Filter by label
-- [ ] Filter by assignee
+- [x] Remove filter (2026-11-01)
+- [x] Filter by milestone (2026-11-01, dialog lists; filter sends milestones=name, not tested with data)
+- [x] Filter by label (2026-11-01, dialog opened with the label list; filter now unquotes the value)
+- [x] Filter by assignee (2026-11-01, fixed: filter was ignored (wrong param name and quoted value); labels with spaces were split)
 - [ ] Filter by participating status
 - [x] Manage labels (collaborator menu) (2026-11-01)
 - [x] Manage milestones (collaborator menu) (2026-11-01)
 - [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
 - [ ] Same checks for the pull request list
 - [x] Create issue button (2026-11-01)
-- [ ] Empty state
+- [x] Empty state (2026-11-01, empty list text shown)
 
 ## 7. Issue detail (`issue_menu`, `issue_fragment_menu`, timeline)
 - [x] Header shows state, number, title, repo (2026-11-01)
