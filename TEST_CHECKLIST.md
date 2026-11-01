@@ -142,12 +142,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 9. Pull request detail (`pullrequest_menu`, `pull_request_fragment_menu`)
 - [x] Conversation tab: header, branch info (head into base), status (2026-11-01, body and comment markdown now render)
 - [ ] Commit status box: header tap and each row tap
-- [ ] Commits tab, open a commit
-- [ ] Files tab, open a file diff
+- [x] Commits tab, open a commit (2026-11-01, list loads; commit tap not done)
+- [x] Files tab, open a file diff (2026-11-01)
 - [ ] Menu: Merge (all merge styles Forgejo offers)
-- [ ] Menu: Review
+- [x] Menu: Review (2026-11-01, form opens with review type and markdown toolbar; not submitted)
 - [ ] Menu: Reopen
-- [ ] Menu: Close
+- [x] Menu: Close (2026-11-01, menu lists Close; not executed on a real PR)
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [ ] Menu: Copy number
@@ -161,7 +161,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Review comment tap and avatar tap
 - [ ] Review overflow: Share, Open in browser
 - [ ] Diff hunk menu: Share, View in file
-- [ ] Diff viewer for a commit and for a PR file
+- [x] Diff viewer for a commit and for a PR file (2026-11-01, PR file checked; commit file checked earlier)
 - [ ] Add inline comment, reply, edit, delete
 - [ ] Share a diff line (`file_line_menu`)
 - [ ] Large and binary diffs do not crash
