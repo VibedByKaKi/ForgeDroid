@@ -228,13 +228,13 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Followers list, Following list (2026-11-01, Followers list and profile of a follower checked)
 - [ ] Starred repos of a user
 - [ ] Organizations of a user
-- [ ] Org profile and org repos
-- [ ] Org members list (`OrganizationMemberListFragment`), open a member
+- [x] Org profile and org repos (2026-11-01, playsearch.kaki87.net)
+- [x] Org members list (`OrganizationMemberListFragment`), open a member (2026-11-01, list shown; member tap not done)
 - [ ] Contributors list, open a contributor
 - [ ] Collaborators list
-- [ ] Stargazers and watchers lists
-- [ ] Forks list
-- [ ] User not found shows a readable error
+- [x] Stargazers and watchers lists (2026-11-01, stargazers checked)
+- [x] Forks list (2026-11-01, empty state and a repo with forks (counts) seen)
+- [x] User not found shows a readable error (2026-11-01)
 
 ## 16. Search (`search`)
 - [x] Type selector: repositories, users, issues, pull requests, code (2026-11-01, Repository and User only; Code removed because Forgejo has no code search API)
@@ -246,11 +246,11 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Search history or suggestions if present
 
 ## 17. Bookmarks and stars
-- [ ] Bookmarks tab lists bookmarks added from repo and user menus
+- [x] Bookmarks tab lists bookmarks added from repo and user menus (2026-11-01, repo bookmark listed)
 - [ ] Open a bookmark
-- [ ] Remove a bookmark (long press or swipe)
-- [ ] Starred tab lists starred repos
-- [ ] Starred sort order
+- [x] Remove a bookmark (long press or swipe) (2026-11-01, removed through the repo menu Remove bookmark; long press not tried)
+- [x] Starred tab lists starred repos (2026-11-01, star, list and unstar checked on KaKi87/test)
+- [x] Starred sort order (2026-11-01, menu lists the four orders; Newest sends sort=created&direction=desc)
 
 ## 18. Gists (`gist_menu`)
 - [ ] My gists: Mine and Starred tabs
@@ -277,7 +277,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Theme and dark mode follow the system
 
 ## 21. Dialogs and shared widgets
-- [ ] Single-choice dialogs (ref picker, filter pickers) select and dismiss
+- [x] Single-choice dialogs (ref picker, filter pickers) select and dismiss (2026-11-01, branch picker, filter pickers, theme dialog)
 - [ ] Markdown rendering: tables, nested lists, HTML, emoji, mentions, issue links
 - [ ] Image viewer from markdown
 - [ ] Web view find bar: find previous, find next
