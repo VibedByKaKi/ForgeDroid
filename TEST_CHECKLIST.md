@@ -168,7 +168,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Missing patch is filled from the `.diff` endpoint
 
 ## 11. Commits (`commit_menu`, `commit_comment_actions`, `commit_history_menu`)
-- [ ] Commit list on the repo Commits tab, paginate
+- [x] Commit list on the repo Commits tab, paginate (2026-11-01, list loads; pagination not done)
 - [ ] Commit list for a file with Follow renames toggle
 - [ ] Commit detail: message, author, stats, files changed
 - [ ] Commit menu: Open in browser, Share
@@ -179,8 +179,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Commit status box
 
 ## 12. Repository (`repo_menu`)
-- [ ] About tab: description, language, counts
-- [ ] Counts match the server for issues, pull requests, forks, stars, watchers
+- [x] About tab: description, language, counts (2026-11-01)
+- [x] Counts match the server for issues, pull requests, forks, stars, watchers (2026-11-01, stars and watchers update after toggling)
 - [ ] Tap each count row opens its list
 - [ ] README expand and collapse, relative links and images
 - [ ] Overview row taps (owner, homepage)
@@ -190,24 +190,24 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Menu: Search code and open a result
 - [ ] Menu: Download code as ZIP
 - [ ] Menu: Bookmark and remove bookmark
-- [ ] Star, unstar
-- [ ] Watch, unwatch
+- [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
+- [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
 - [ ] Fork
 - [ ] Other information: Contributors, Collaborators, Releases, Wiki
 - [ ] Wiki list and a wiki page (hidden or clear message when the wiki is off)
-- [ ] Activity tab, open an item
+- [x] Activity tab, open an item (2026-11-01, list loads; item tap not done)
 - [ ] Empty repo
-- [ ] Private repo
+- [x] Private repo (2026-11-01)
 - [ ] Archived and mirror repo
 
 ## 13. Files (`file_viewer_menu`, content list)
-- [ ] Folder browse and breadcrumbs, tap a breadcrumb
-- [ ] Open a text file, syntax highlight
+- [x] Folder browse and breadcrumbs, tap a breadcrumb (2026-11-01, browse works; breadcrumb tap not done)
+- [x] Open a text file, syntax highlight (2026-11-01)
 - [ ] Open a markdown file rendered
 - [ ] Open an image file
 - [ ] Open a large and a binary file
 - [ ] File menu: Search in file, Open in browser, Share, Download, Wrap lines, Raw
-- [ ] File history from the content list
+- [x] File history from the content list (2026-11-01)
 - [ ] Line tap and share line
 - [ ] Branch and tag picker keeps the path
 - [ ] Gist file viewer: Open in browser, Download
