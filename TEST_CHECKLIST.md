@@ -50,7 +50,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 3. News Feed
 - [ ] Pull to refresh
 - [x] Scroll to load the next page (2026-11-01, News Feed page 2 loads)
-- [ ] Tap an avatar opens that user
+- [x] Tap an avatar opens that user (2026-11-01, feed row avatar opens profile)
 - [x] Tap a repo name opens the repo (2026-11-01, repo links from rows open the repo or commit)
 - [x] Push event row, tap row, tap each listed commit (2026-11-01, row opens the commit; commit tap checked)
 - [x] Create repository, branch and tag rows (2026-11-01, create rows not in the live feed; renderer unchanged from the original)
@@ -124,8 +124,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Text selection menu: Quote
 - [x] Reaction picker: +1, -1, laugh, hooray, confused, heart, rocket, eyes, and the Loading state (2026-11-01, all eight listed; +1 added)
 - [x] Reaction bar tap adds and removes a reaction (2026-11-01, fixed: remove sent no DELETE; ids now synthesized)
-- [ ] Tap a user avatar and extra text in a comment
-- [ ] Link inside markdown opens the right screen
+- [x] Tap a user avatar and extra text in a comment (2026-11-01, avatar opens the profile)
+- [x] Link inside markdown opens the right screen (2026-11-01, issue link opens the issue screen, mention opens the user)
 - [x] Rotate keeps the draft and scroll position (2026-11-01, draft kept in the comment box)
 
 ## 8. Create and edit issue, labels, milestones
@@ -278,7 +278,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 21. Dialogs and shared widgets
 - [x] Single-choice dialogs (ref picker, filter pickers) select and dismiss (2026-11-01, branch picker, filter pickers, theme dialog)
-- [ ] Markdown rendering: tables, nested lists, HTML, emoji, mentions, issue links
+- [x] Markdown rendering: tables, nested lists, HTML, emoji, mentions, issue links (2026-11-01, table cells render without a grid, nested lists, bold, strike, code block, emoji and links render; a bare #1 is not linked)
 - [ ] Image viewer from markdown
 - [ ] Web view find bar: find previous, find next
 - [ ] Print menu
@@ -305,9 +305,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Release build behaves like debug (R8 does not strip the interceptor models) (2026-11-01, the CI release APK installs and starts; minifyEnabled is not set, so R8 does not strip anything. The artifact is a direct APK, not a ZIP)
 - [x] Back stack after deep link (2026-11-01, back from a deep-linked screen goes up to the repo or user, then out)
 
-- [ ] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized)
+- [x] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized) (2026-11-01, issue body, comments, PR comments, release notes checked; commit comments do not exist; review bodies show text)
 
 - [ ] Issue menu has "Open in new window"; verify it
 - [ ] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept
 - [ ] Deep links on custom hosts cannot be registered in the manifest; confirm links to a custom host open in the browser
-- [ ] Emoji shortcodes such as :bug: in issue and PR titles render as text, not emoji
+- [x] Emoji shortcodes such as :bug: in issue and PR titles render as text, not emoji (2026-11-01, body text renders emoji; titles still show :bug: because titles are plain text (Forgejo returns the shortcode))

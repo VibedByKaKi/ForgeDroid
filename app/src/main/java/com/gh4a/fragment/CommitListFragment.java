@@ -126,9 +126,8 @@ public class CommitListFragment extends PagedDataBaseFragment<Commit> implements
 
     @Override
     public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
-        if (mFileType == ContentType.File || mFileType == ContentType.Submodule) {
-            inflater.inflate(R.menu.commit_history_menu, menu);
-        }
+        // Forgejo's commits API cannot follow renames, so the toggle is not offered.
+
     }
 
     @Override
