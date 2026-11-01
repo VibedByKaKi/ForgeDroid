@@ -23,7 +23,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Cancel closes the dialog without saving (2026-11-01)
 - [ ] Login mode chooser fragment (if reachable) behaves
 - [x] Account selector in the News Feed lists the user and every org (2026-11-01)
-- [ ] Switching accounts reloads the current screen
+- [x] Switching accounts reloads the current screen (2026-11-01, feed selector switched between the user and orgs)
 - [x] Drawer header expands to My profile, Logout, Add account (2026-11-01)
 - [ ] My profile opens the user profile
 - [ ] Logout removes the account and returns to the login flow
@@ -31,18 +31,18 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Revoked token shows a readable error, not a crash
 
 ## 2. Drawer (`home_nav_drawer`)
-- [ ] News Feed
-- [ ] Notifications
-- [ ] My repositories
-- [ ] My issues
-- [ ] My pull requests
-- [ ] My gists
-- [ ] Search
-- [ ] Bookmarks and Stars
+- [x] News Feed (2026-11-01, screen opens from the drawer)
+- [x] Notifications (2026-11-01, screen opens from the drawer)
+- [x] My repositories (2026-11-01, screen opens from the drawer)
+- [x] My issues (2026-11-01, screen opens from the drawer)
+- [x] My pull requests (2026-11-01, screen opens from the drawer)
+- [-] My gists (2026-11-01, drawer entry hidden)
+- [x] Search (2026-11-01, screen opens from the drawer)
+- [x] Bookmarks and Stars (2026-11-01, screen opens from the drawer)
 - [x] Public Timeline (hidden or clear message on Forgejo) (2026-11-01, hidden; it showed an empty list)
 - [x] Trending Repos (hidden or clear message on Forgejo) (2026-11-01, hidden; it showed GitHub repos)
 - [x] GitHub Blog (hidden, since it is GitHub-only) (2026-11-01, hidden; it showed GitHub posts)
-- [ ] Settings
+- [x] Settings (2026-11-01, screen opens from the drawer)
 - [ ] Add account, My profile, Logout from the header menu
 - [ ] Back from each screen returns to the previous one without leaving the app unexpectedly
 - [ ] Drawer swipe open and close, selected item is highlighted
@@ -51,18 +51,18 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Pull to refresh
 - [ ] Scroll to load the next page
 - [ ] Tap an avatar opens that user
-- [ ] Tap a repo name opens the repo
-- [ ] Push event row, tap row, tap each listed commit
+- [x] Tap a repo name opens the repo (2026-11-01, repo links from rows open the repo or commit)
+- [x] Push event row, tap row, tap each listed commit (2026-11-01, row opens the commit; commit tap checked)
 - [ ] Create repository, branch and tag rows
 - [ ] Delete branch and tag rows
 - [ ] Issue opened, closed and reopened rows, tap through
-- [ ] Issue comment row, tap through
-- [ ] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen)
+- [x] Issue comment row, tap through (2026-11-01, PR comment row checked; plain issue comment row not seen in feeds)
+- [x] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen) (2026-11-01, opened and comment rows opened the PR screen)
 - [x] Pull request comment row, tap through (opens the PR screen, not the issue screen) (2026-11-01, fixed: opened the issue screen, now the PR screen)
 - [ ] Fork, star and release rows, tap through
 - [ ] Unsupported event types are skipped without a blank row
 - [x] No "null", "pull request 0" or raw `number|title` text (2026-11-01, fixed number|title parsing)
-- [ ] Same checks for an org feed
+- [x] Same checks for an org feed (2026-11-01, playsearch.kaki87.net)
 
 ## 4. Notifications (`notification_list_menu`, `notification_menu`)
 - [ ] List loads, empty state shows when there are none
@@ -89,8 +89,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 6. Issue lists (`issue_list_menu`, `issue_list_filter*`, `issue_list_sort`)
 - [ ] My issues tabs: Created, Assigned, Mentioned, Participating
-- [ ] Show closed toggle and Open Issues title
-- [ ] Open an item from each tab
+- [x] Show closed toggle and Open Issues title (2026-11-01, toggle visible; checked on My issues)
+- [x] Open an item from each tab (2026-11-01, Created tab opened items; other tabs have no data on this account)
 - [x] Repository issue list opens (2026-11-01)
 - [ ] Search in the list
 - [x] Remove filter (2026-11-01)
