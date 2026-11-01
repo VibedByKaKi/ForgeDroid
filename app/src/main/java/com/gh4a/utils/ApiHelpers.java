@@ -228,12 +228,20 @@ public class ApiHelpers {
         if (activeInstance) {
             authority = "github.com";
             path = path.replaceAll("/pulls/(\\d+)(/|$)", "/pull/$1$2");
+            // Forgejo source URLs are /src/branch|tag|commit/<ref>/<path>; GitHub uses /blob/.
+            path = path.replaceAll("/src/(branch|tag|commit)/", "/blob/");
         }
 
         return uri.buildUpon()
                 .path(path)
                 .authority(authority)
                 .build();
+    }
+
+    /** Host for web links: the active Forgejo instance, or github.com when none is set. */
+    public static String webAuthority() {
+        String host = activeInstanceHost();
+        return host != null ? host : "github.com";
     }
 
     @Nullable

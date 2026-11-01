@@ -79,8 +79,9 @@ public class CommitActivity extends BaseFragmentPagerActivity implements
     private List<GitComment> mComments;
     private IntentUtils.InitialCommentMarker mInitialComment;
 
+    // Forgejo has no commit comments, so only the commit tab is shown.
     private static final int[] TITLES = new int[] {
-        R.string.commit, R.string.issue_comments
+        R.string.commit
     };
 
     @Override

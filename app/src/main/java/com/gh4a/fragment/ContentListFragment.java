@@ -196,9 +196,8 @@ public class ContentListFragment extends ListDataBaseFragment<Content> implement
             case R.id.download:
                 String url = IntentUtils.createRawFileUrl(mRepository.owner().login(),
                         mRepository.name(), mRef, contents.path());
-                DownloadUtils.enqueueDownloadWithPermissionCheck(getBaseActivity(),
-                        url, FileUtils.getMimeTypeFor(contents.name()),
-                        contents.name(), null);
+                DownloadUtils.enqueueAuthenticatedDownloadWithPermissionCheck(getBaseActivity(),
+                        url, FileUtils.getMimeTypeFor(contents.name()), contents.name());
                 return true;
         }
 

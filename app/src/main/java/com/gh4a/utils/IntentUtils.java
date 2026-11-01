@@ -43,7 +43,7 @@ import androidx.fragment.app.FragmentActivity;
 
 public class IntentUtils {
     private static final String EXTRA_NEW_TASK = "IntentUtils.new_task";
-    private static final String RAW_URL_FORMAT = "https://raw.githubusercontent.com/%s/%s/%s/%s";
+    private static final String RAW_URL_FORMAT = "https://%s/%s/%s/raw/%s/%s";
 
     private IntentUtils() {
     }
@@ -157,7 +157,7 @@ public class IntentUtils {
     public static Uri.Builder createBaseUriForUser(String user) {
         return new Uri.Builder()
                 .scheme("https")
-                .authority("github.com")
+                .authority(ApiHelpers.webAuthority())
                 .appendPath(user);
     }
 
@@ -167,7 +167,8 @@ public class IntentUtils {
     }
 
     public static String createRawFileUrl(String repoOwner, String repoName, String ref, String path) {
-        return String.format(Locale.US, RAW_URL_FORMAT, repoOwner, repoName, ref, path);
+        return String.format(Locale.US, RAW_URL_FORMAT, ApiHelpers.webAuthority(), repoOwner, repoName,
+                ref, path);
     }
 
     public static void share(Context context, String subject, Uri url) {

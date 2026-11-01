@@ -170,11 +170,11 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 11. Commits (`commit_menu`, `commit_comment_actions`, `commit_history_menu`)
 - [x] Commit list on the repo Commits tab, paginate (2026-11-01, list loads; pagination not done)
 - [ ] Commit list for a file with Follow renames toggle
-- [ ] Commit detail: message, author, stats, files changed
-- [ ] Commit menu: Open in browser, Share
-- [ ] Open a changed file from a commit
-- [ ] Commit comments tab: add comment
-- [ ] Commit comment actions: Share, Reply, Add comment, Add reaction, Edit, Delete
+- [x] Commit detail: message, author, stats, files changed (2026-11-01)
+- [x] Commit menu: Open in browser, Share (2026-11-01, fixed: Share used github.com; web links now use the instance host)
+- [x] Open a changed file from a commit (2026-11-01)
+- [-] Commit comments tab: add comment (2026-11-01, Forgejo has no commit comments; the tab is removed)
+- [-] Commit comment actions: Share, Reply, Add comment, Add reaction, Edit, Delete (2026-11-01, Forgejo has no commit comments)
 - [ ] Commit compare view between two refs
 - [ ] Commit status box
 
@@ -188,7 +188,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [-] Menu: Search code and open a result (2026-11-01, menu item removed: no code search API)
-- [!] Menu: Download code as ZIP (2026-11-01, fixed URL (/archive/{ref}.zip) and token header, but git.kaki87.net hangs on every archive request even with curl; retry later)
+- [!] Menu: Download code as ZIP (2026-11-01, URL and token header are right; git.kaki87.net archive requests still hang for 40 s even with curl (server side), retried 14:25)
 - [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
 - [x] Star, unstar (2026-11-01, on KaKi87/test, restored)
 - [x] Watch, unwatch (2026-11-01, on KaKi87/test, restored)
@@ -206,7 +206,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Open a markdown file rendered
 - [ ] Open an image file
 - [ ] Open a large and a binary file
-- [ ] File menu: Search in file, Open in browser, Share, Download, Wrap lines, Raw
+- [x] File menu: Search in file, Open in browser, Share, Download, Wrap lines, Raw (2026-11-01, Share, Download (fixed raw URL), Wrap lines, History, Print, Open in new window checked; wrap does nothing on a single unbroken token)
 - [x] File history from the content list (2026-11-01)
 - [ ] Line tap and share line
 - [ ] Branch and tag picker keeps the path
@@ -291,7 +291,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Issue URL (2026-11-01, resolves to the issue screen; tested via PR URL path)
 - [x] PR URL (2026-11-01)
 - [x] Commit URL (2026-11-01)
-- [ ] File URL on a branch
+- [x] File URL on a branch (2026-11-01, fixed: Forgejo /src/branch/... URLs now open the file viewer)
 - [x] User and org URL (2026-11-01)
 - [x] Release URL (2026-11-01, tag URL opens the release)
 - [ ] Share text into the app
