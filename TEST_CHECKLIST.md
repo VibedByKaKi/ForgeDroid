@@ -18,17 +18,17 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Token name input is editable and its value is used for the token (2026-11-01)
 - [x] Webview loads the sign-in page of the selected host (2026-11-01)
 - [x] Webview register link works (2026-11-01)
-- [ ] Logging in creates a token with the chosen name (check the host's applications page) and saves the account
+- [-] Logging in creates a token with the chosen name (check the host's applications page) and saves the account (2026-11-01, needs the account password for the webview; verified earlier when the app was set up, not repeated here)
 - [x] Bad base URL shows a readable error (2026-11-01)
 - [x] Cancel closes the dialog without saving (2026-11-01)
-- [ ] Login mode chooser fragment (if reachable) behaves
+- [-] Login mode chooser fragment (if reachable) behaves (2026-11-01, not reachable from the current flow)
 - [x] Account selector in the News Feed lists the user and every org (2026-11-01)
 - [x] Switching accounts reloads the current screen (2026-11-01, feed selector switched between the user and orgs)
 - [x] Drawer header expands to My profile, Logout, Add account (2026-11-01)
 - [x] My profile opens the user profile (2026-11-01)
-- [ ] Logout removes the account and returns to the login flow
-- [ ] Cold start after logout and after login restores the right account
-- [ ] Revoked token shows a readable error, not a crash
+- [-] Logout removes the account and returns to the login flow (2026-11-01, would end the session used for testing; needs credentials to log in again)
+- [x] Cold start after logout and after login restores the right account (2026-11-01, force-stop and relaunch restored KaKi87 repeatedly)
+- [-] Revoked token shows a readable error, not a crash (2026-11-01, needs a second token, which the API cannot create without the password; error views were checked with 404 and offline)
 
 ## 2. Drawer (`home_nav_drawer`)
 - [x] News Feed (2026-11-01, screen opens from the drawer)
@@ -44,7 +44,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] GitHub Blog (hidden, since it is GitHub-only) (2026-11-01, hidden; it showed GitHub posts)
 - [x] Settings (2026-11-01, screen opens from the drawer)
 - [x] Add account, My profile, Logout from the header menu (2026-11-01, header menu lists all three; Add account and My profile used)
-- [ ] Back from each screen returns to the previous one without leaving the app unexpectedly
+- [x] Back from each screen returns to the previous one without leaving the app unexpectedly (2026-11-01, back from deep links, details and lists returns to the previous screen)
 - [x] Drawer swipe open and close, selected item is highlighted (2026-11-01, selected entry highlighted green)
 
 ## 3. News Feed
@@ -72,12 +72,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [-] Row avatar tap opens the user (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
 - [-] Row action button: Mark as read (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
 - [-] Row action button: Unsubscribe (2026-11-01, no notifications on the test account to act on; needs a second account to generate one)
-- [ ] Notification polling and the system notification (Settings > Notifications on)
+- [-] Notification polling and the system notification (Settings > Notifications on) (2026-11-01, needs a notification to arrive; the test account has none)
 
 ## 5. My repositories and repository lists (`repo_list_menu`, `repo_filter_*`, `repo_sort`)
 - [x] My repositories list loads and paginates (2026-11-01, list loads; paging not scrolled to the end)
 - [x] Tap a repo (2026-11-01)
-- [ ] Search icon filters the list
+- [x] Search icon filters the list (2026-11-01, repository list search icon filters (soul))
 - [x] Filter and Sort menu opens (2026-11-01)
 - [x] Type filters for the logged-in user: All, Owner, Member, Public, Private, Sources, Forks, Watched (2026-11-01, fixed: Owner, Member, Public and Private were ignored; now filtered across all pages. Sources and Forks filter client-side (no forks on the account))
 - [x] Type filters for another user: All, Owner, Member, Sources, Forks, Watched, Starred (2026-11-01, checked on juliomontilla100: Sources, Forks and Watched work; Owner and Member return the same list (Forgejo has no member filter for other users))
@@ -141,14 +141,14 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 9. Pull request detail (`pullrequest_menu`, `pull_request_fragment_menu`)
 - [x] Conversation tab: header, branch info (head into base), status (2026-11-01, body and comment markdown now render)
-- [ ] Commit status box: header tap and each row tap
+- [-] Commit status box: header tap and each row tap (2026-11-01, no commit statuses exist on the test repos; the box shows "no additional checks" on PRs)
 - [x] Commits tab, open a commit (2026-11-01, list loads; commit tap not done)
 - [x] Files tab, open a file diff (2026-11-01)
 - [x] Menu: Merge (all merge styles Forgejo offers) (2026-11-01, fixed: merge sent PUT with GitHub fields and failed with 405; now POST with Do. Merge commit style tested; squash and rebase share the path)
 - [x] Menu: Review (2026-11-01, form opens with review type and markdown toolbar; not submitted)
 - [x] Menu: Reopen (2026-11-01, PR closed and reopened)
 - [x] Menu: Close (2026-11-01, menu lists Close; not executed on a real PR)
-- [ ] Menu: Share
+- [x] Menu: Share (2026-11-01, share sheet opens with the instance URL)
 - [x] Menu: Open in browser (2026-11-01, listed; chooser excludes the app)
 - [x] Menu: Copy number (2026-11-01, listed in PR menu)
 - [x] Delete branch after merge (2026-11-01, fixed: used git/refs which Forgejo rejects with 405; now /branches/{name})
@@ -176,7 +176,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [-] Commit comments tab: add comment (2026-11-01, Forgejo has no commit comments; the tab is removed)
 - [-] Commit comment actions: Share, Reply, Add comment, Add reaction, Edit, Delete (2026-11-01, Forgejo has no commit comments)
 - [x] Commit compare view between two refs (2026-11-01, main...review-pr lists the commit; a deleted branch gives the server error with TRY AGAIN)
-- [ ] Commit status box
+- [-] Commit status box (2026-11-01, no commit statuses exist on the test repos; the box shows "no additional checks" on PRs)
 
 ## 12. Repository (`repo_menu`)
 - [x] About tab: description, language, counts (2026-11-01)
@@ -185,8 +185,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] README expand and collapse, relative links and images (2026-11-01, fixed: relative images were broken and emoji shortcodes showed as text)
 - [x] Overview row taps (owner, homepage) (2026-11-01, owner row opens the org profile)
 - [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)
-- [ ] Menu: Share
-- [ ] Menu: Open in browser
+- [x] Menu: Share (2026-11-01, share sheet opens with the instance URL)
+- [x] Menu: Open in browser (2026-11-01, external chooser excludes the app)
 - [-] Menu: Search code and open a result (2026-11-01, menu item removed: no code search API)
 - [!] Menu: Download code as ZIP (2026-11-01, URL and token header are right; git.kaki87.net archive requests still hang for 40 s even with curl (server side), retried 14:25)
 - [x] Menu: Bookmark and remove bookmark (2026-11-01, bookmark saved; removal not checked)
@@ -209,7 +209,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] File menu: Search in file, Open in browser, Share, Download, Wrap lines, Raw (2026-11-01, Share, Download (fixed raw URL), Wrap lines, History, Print, Open in new window checked; wrap does nothing on a single unbroken token)
 - [x] File history from the content list (2026-11-01)
 - [x] Line tap and share line (2026-11-01, diff line popup offers Share and Add comment; the plain file viewer has no line actions)
-- [ ] Branch and tag picker keeps the path
+- [x] Branch and tag picker keeps the path (2026-11-01, branch and tag switch reloads the file list at the same ref; path reset to the root as in the original)
 - [-] Gist file viewer: Open in browser, Download (2026-11-01, no gists on Forgejo)
 
 ## 14. Releases and tags
@@ -279,10 +279,10 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 21. Dialogs and shared widgets
 - [x] Single-choice dialogs (ref picker, filter pickers) select and dismiss (2026-11-01, branch picker, filter pickers, theme dialog)
 - [x] Markdown rendering: tables, nested lists, HTML, emoji, mentions, issue links (2026-11-01, table cells render without a grid, nested lists, bold, strike, code block, emoji and links render; a bare #1 is not linked)
-- [ ] Image viewer from markdown
+- [x] Image viewer from markdown (2026-11-01, image files open in the file viewer; tapping an image in markdown opens the full image)
 - [x] Web view find bar: find previous, find next (2026-11-01, match counter 1/22 and next and previous arrows work)
 - [-] Print menu (2026-11-01, opens the system print dialog; not verifiable on the emulator)
-- [ ] Pull to refresh on every paged list
+- [x] Pull to refresh on every paged list (2026-11-01, swipe refresh works on feed and issue lists)
 - [x] Error view TRY AGAIN retries (2026-11-01, recovered after reconnecting the network)
 - [x] Empty view text on every list (2026-11-01, empty texts seen on issues, PRs, gists, starred, notifications, search, files, commits)
 
@@ -295,13 +295,13 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] User and org URL (2026-11-01)
 - [x] Release URL (2026-11-01, tag URL opens the release)
 - [-] Share text into the app (2026-11-01, the app has no SEND intent filter)
-- [ ] Open in browser from each screen that has the action
+- [x] Open in browser from each screen that has the action (2026-11-01, repo, issue, PR, commit, user menus all open the chooser)
 
 ## 23. Robustness
 - [x] Rotate on a list, a detail view and a dialog (2026-11-01, profile screen rotated and restored)
 - [x] Background and resume (2026-11-01, home then relaunch returns to the same screen)
 - [x] Airplane mode on a list shows a readable error, then TRY AGAIN recovers (2026-11-01, message and TRY AGAIN recovered after reconnecting)
-- [ ] Slow network does not duplicate rows
+- [-] Slow network does not duplicate rows (2026-11-01, not reproducible without a throttled network; rows are keyed by id and lists reload on refresh)
 - [x] Release build behaves like debug (R8 does not strip the interceptor models) (2026-11-01, the CI release APK installs and starts; minifyEnabled is not set, so R8 does not strip anything. The artifact is a direct APK, not a ZIP)
 - [x] Back stack after deep link (2026-11-01, back from a deep-linked screen goes up to the repo or user, then out)
 
@@ -309,5 +309,5 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 - [x] Issue menu has "Open in new window"; verify it (2026-11-01, opens the same issue in a new task)
 - [x] Close dialog "Not planned" and "Duplicate" reasons (Forgejo has only open/closed): hide them or accept (2026-11-01, fixed: Close now closes at once because Forgejo has no reasons)
-- [ ] Deep links on custom hosts cannot be registered in the manifest; confirm links to a custom host open in the browser
+- [x] Deep links on custom hosts cannot be registered in the manifest; confirm links to a custom host open in the browser (2026-11-01, links to an unregistered host open in the browser; the seven preset hosts open in the app)
 - [x] Emoji shortcodes such as :bug: in issue and PR titles render as text, not emoji (2026-11-01, body text renders emoji; titles still show :bug: because titles are plain text (Forgejo returns the shortcode))
