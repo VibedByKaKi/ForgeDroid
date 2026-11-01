@@ -157,9 +157,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Merged and closed states render correctly (2026-11-01, merged (purple) and closed (red) headers checked)
 
 ## 10. Reviews and diffs (`review_menu`, `review_diff_hunk_menu`, diff viewer)
-- [ ] Review list in the PR conversation, expand details
+- [x] Review list in the PR conversation, expand details (2026-11-01, review row shows reviewer and body)
 - [ ] Review comment tap and avatar tap
-- [ ] Review overflow: Share, Open in browser
+- [x] Review overflow: Share, Open in browser (2026-11-01, both listed)
 - [ ] Diff hunk menu: Share, View in file
 - [x] Diff viewer for a commit and for a PR file (2026-11-01, PR file checked; commit file checked earlier)
 - [ ] Add inline comment, reply, edit, delete

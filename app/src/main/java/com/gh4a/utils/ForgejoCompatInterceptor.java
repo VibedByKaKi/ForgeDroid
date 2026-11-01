@@ -111,6 +111,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/.+/reactions$");
     private static final Pattern REF_DELETE =
             Pattern.compile("^/api/v1/repos/([^/]+/[^/]+)/git/refs/(?:heads|tags)(?:/|%2F)(.+)$");
+    private static final Pattern PULL_REVIEWS =
+            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/reviews(/\\d+)?$");
     private static final Pattern PULL_MERGE =
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/merge$");
     private static final Pattern LABEL_BY_NAME =
@@ -339,6 +341,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 }
             }
             rewritten = aliasStarFields(rewritten);
+            if (response.isSuccessful() && PULL_REVIEWS.matcher(path).matches()) {
+                rewritten = mapReviewStates(rewritten);
+            }
             if (response.isSuccessful()) {
                 rewritten = maybeEnrichFilePatches(chain, request, path, rewritten);
                 rewritten = maybeAddBodyHtml(chain, request, path, rewritten);
@@ -600,6 +605,37 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 .body(ResponseBody.create(JSON,
                         "{\"merged\":true,\"message\":\"Pull Request successfully merged\",\"sha\":\"\"}"))
                 .build();
+    }
+
+    /** Map Forgejo review states (COMMENT, REQUEST_CHANGES, ...) onto GitHub's enum values. */
+    private static String mapReviewStates(String body) throws JSONException {
+        String trimmed = body.trim();
+        if (trimmed.startsWith("[")) {
+            JSONArray arr = new JSONArray(trimmed);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject r = arr.optJSONObject(i);
+                if (r != null) {
+                    mapReviewState(r);
+                }
+            }
+            return arr.toString();
+        }
+        if (trimmed.startsWith("{")) {
+            JSONObject r = new JSONObject(trimmed);
+            mapReviewState(r);
+            return r.toString();
+        }
+        return body;
+    }
+
+    private static void mapReviewState(JSONObject review) throws JSONException {
+        String state = review.optString("state", "");
+        switch (state) {
+            case "COMMENT": review.put("state", "COMMENTED"); break;
+            case "REQUEST_CHANGES": review.put("state", "CHANGES_REQUESTED"); break;
+            case "REQUEST_REVIEW": review.put("state", "PENDING"); break;
+            default: break;
+        }
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(
