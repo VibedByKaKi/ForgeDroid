@@ -184,7 +184,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Tap each count row opens its list
 - [ ] README expand and collapse, relative links and images
 - [ ] Overview row taps (owner, homepage)
-- [ ] Menu: Select branch, switch to a tag and to another branch
+- [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [ ] Menu: Search code and open a result
@@ -213,12 +213,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Gist file viewer: Open in browser, Download
 
 ## 14. Releases and tags
-- [ ] Release list
-- [ ] Release detail: title, tag, body, assets
+- [x] Release list (2026-11-01)
+- [x] Release detail: title, tag, body, assets (2026-11-01)
 - [ ] Tag text tap and avatar tap
-- [ ] Menu: Open in browser, Add reaction
-- [!] Download an asset (2026-11-01, changed to browser_download_url with token header; not tested, no release with assets found yet)
-- [ ] Release reaction picker
+- [x] Menu: Open in browser, Add reaction (2026-11-01, Add reaction removed: Forgejo releases have no reactions; reactions endpoint returns [])
+- [x] Download an asset (2026-11-01, 82 kB png downloaded with token header)
+- [-] Release reaction picker (2026-11-01, Forgejo has no release reactions)
 
 ## 15. Users, orgs and social
 - [ ] User profile: avatar, bio, counts, email, website
@@ -293,7 +293,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Commit URL (2026-11-01)
 - [ ] File URL on a branch
 - [x] User and org URL (2026-11-01)
-- [ ] Release URL
+- [x] Release URL (2026-11-01, tag URL opens the release)
 - [ ] Share text into the app
 - [ ] Open in browser from each screen that has the action
 
