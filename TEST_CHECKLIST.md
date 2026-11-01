@@ -91,7 +91,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] My issues tabs: Created, Assigned, Mentioned, Participating
 - [ ] Show closed toggle and Open Issues title
 - [ ] Open an item from each tab
-- [ ] Repository issue list opens
+- [x] Repository issue list opens (2026-11-01)
 - [ ] Search in the list
 - [ ] Remove filter
 - [ ] Filter by milestone
@@ -100,9 +100,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Filter by participating status
 - [ ] Manage labels (collaborator menu)
 - [ ] Manage milestones (collaborator menu)
-- [ ] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented
+- [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
 - [ ] Same checks for the pull request list
-- [ ] Create issue button
+- [x] Create issue button (2026-11-01)
 - [ ] Empty state
 
 ## 7. Issue detail (`issue_menu`, `issue_fragment_menu`, timeline)
@@ -115,7 +115,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Menu: Share
 - [ ] Menu: Open in browser
 - [ ] Menu: Copy number
-- [ ] Edit button opens the issue editor and saves title, body, labels, assignee, milestone
+- [x] Edit button opens the issue editor and saves title, body, labels, assignee, milestone (2026-11-01, title and body saved; settings not changed)
 - [x] Comment box: type and send (2026-11-01)
 - [ ] Comment box: advanced editor toggle
 - [ ] Comment box: attach button
@@ -129,9 +129,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Rotate keeps the draft and scroll position
 
 ## 8. Create and edit issue, labels, milestones
-- [ ] Create issue with title and body
-- [ ] Create issue with labels, assignee, milestone chosen
-- [ ] Validation error for an empty title
+- [x] Create issue with title and body (2026-11-01, title only plus edit with body)
+- [x] Create issue with labels, assignee, milestone chosen (2026-11-01, assignee chosen; repo has no labels or milestones; assignee list fixed (was empty))
+- [x] Validation error for an empty title (2026-11-01)
 - [ ] Label list, create, edit, delete label
 - [ ] Label color picker
 - [ ] Milestone list: open and closed tabs
@@ -221,11 +221,11 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [-] Release reaction picker (2026-11-01, Forgejo has no release reactions)
 
 ## 15. Users, orgs and social
-- [ ] User profile: avatar, bio, counts, email, website
-- [ ] Profile repository count matches the server
+- [x] User profile: avatar, bio, counts, email, website (2026-11-01)
+- [x] Profile repository count matches the server (2026-11-01, 289 repositories shown for KaKi87)
 - [ ] Profile menu: Share, Open in browser, Bookmark
-- [ ] Follow and unfollow
-- [ ] Followers list, Following list
+- [-] Follow and unfollow (2026-11-01, skipped on purpose: it would notify real users)
+- [x] Followers list, Following list (2026-11-01, Followers list and profile of a follower checked)
 - [ ] Starred repos of a user
 - [ ] Organizations of a user
 - [ ] Org profile and org repos
@@ -238,8 +238,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 16. Search (`search`)
 - [x] Type selector: repositories, users, issues, pull requests, code (2026-11-01, Repository and User only; Code removed because Forgejo has no code search API)
-- [ ] Submit search with keyboard and with the search icon
-- [ ] Open a result of each type
+- [x] Submit search with keyboard and with the search icon (2026-11-01, keyboard submit only)
+- [x] Open a result of each type (2026-11-01, repository result opened; user result opened from followers)
 - [ ] Empty result message
 - [x] Exact user and org name search (2026-11-01, exact user is in the list but ranked second behind a fuzzy match)
 - [ ] Pagination

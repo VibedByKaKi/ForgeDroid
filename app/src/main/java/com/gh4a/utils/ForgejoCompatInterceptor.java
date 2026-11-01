@@ -105,6 +105,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/pulls/([^/]+)/requested_reviewers$");
     private static final Pattern REACTIONS =
             Pattern.compile("^/api/v1/repos/.+/reactions$");
+    private static final Pattern COLLABORATORS_LIST =
+            Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/collaborators$");
     private static final Pattern RELEASE_REACTIONS =
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/releases/\\d+/reactions$");
     private static final Pattern REACTION_DELETE =
@@ -1118,6 +1120,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
             changed = true;
         } else if ((m = ORG_EVENTS.matcher(path)).matches()) {
             urlBuilder.encodedPath("/api/v1/orgs/" + m.group(1) + "/activities/feeds");
+            changed = true;
+        } else if ((m = COLLABORATORS_LIST.matcher(path)).matches()
+                && "GET".equalsIgnoreCase(original.method())) {
+            // Forgejo /collaborators omits the owner and org members. /assignees has them,
+            // which is what issue assignee pickers need.
+            urlBuilder.encodedPath(
+                    "/api/v1/repos/" + m.group(1) + "/" + m.group(2) + "/assignees");
             changed = true;
         } else if (MY_REPOS.matcher(path).matches()) {
             // GitHub sort=pushed|updated|created|full_name + direction → Forgejo order_by.
