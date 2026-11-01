@@ -294,16 +294,16 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] File URL on a branch (2026-11-01, fixed: Forgejo /src/branch/... URLs now open the file viewer)
 - [x] User and org URL (2026-11-01)
 - [x] Release URL (2026-11-01, tag URL opens the release)
-- [ ] Share text into the app
+- [-] Share text into the app (2026-11-01, the app has no SEND intent filter)
 - [ ] Open in browser from each screen that has the action
 
 ## 23. Robustness
 - [ ] Rotate on a list, a detail view and a dialog
 - [ ] Background and resume
-- [ ] Airplane mode on a list shows a readable error, then TRY AGAIN recovers
+- [x] Airplane mode on a list shows a readable error, then TRY AGAIN recovers (2026-11-01, message and TRY AGAIN recovered after reconnecting)
 - [ ] Slow network does not duplicate rows
-- [ ] Release build behaves like debug (R8 does not strip the interceptor models)
-- [ ] Back stack after deep link
+- [x] Release build behaves like debug (R8 does not strip the interceptor models) (2026-11-01, the CI release APK installs and starts; minifyEnabled is not set, so R8 does not strip anything. The artifact is a direct APK, not a ZIP)
+- [x] Back stack after deep link (2026-11-01, back from a deep-linked screen goes up to the repo or user, then out)
 
 - [ ] Re-check markdown rendering on issue body, issue comments, commit comments, release notes, review bodies (body_html is now synthesized)
 
