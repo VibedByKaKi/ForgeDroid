@@ -28,6 +28,7 @@
             android:icon="@drawable/icon_pull_request"/>
         <item
             android:id="@+id/my_gists"
+            android:visible="false"
             android:title="@string/my_gists"
             android:icon="@drawable/icon_gists"/>
     </group>
@@ -48,14 +49,17 @@
         android:checkableBehavior="single">
         <item
             android:id="@+id/pub_timeline"
+            android:visible="false"
             android:title="@string/pub_timeline"
             android:icon="@drawable/icon_timeline" />
         <item
             android:id="@+id/trend"
+            android:visible="false"
             android:title="@string/trend"
             android:icon="@drawable/icon_trending"/>
         <item
             android:id="@+id/blog"
+            android:visible="false"
             android:title="@string/blog"
             android:icon="@drawable/icon_github"/>
     </group>
