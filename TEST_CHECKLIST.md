@@ -59,7 +59,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Issue comment row, tap through (2026-11-01, PR comment row checked; plain issue comment row not seen in feeds)
 - [x] Pull request opened, closed, reopened and merged rows, tap through (opens the PR screen) (2026-11-01, opened and comment rows opened the PR screen)
 - [x] Pull request comment row, tap through (opens the PR screen, not the issue screen) (2026-11-01, fixed: opened the issue screen, now the PR screen)
-- [ ] Fork, star and release rows, tap through
+- [-] Fork, star and release rows, tap through (2026-11-01, forking would create a repo under a real account)
 - [ ] Unsupported event types are skipped without a blank row
 - [x] No "null", "pull request 0" or raw `number|title` text (2026-11-01, fixed number|title parsing)
 - [x] Same checks for an org feed (2026-11-01, playsearch.kaki87.net)
@@ -182,7 +182,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] About tab: description, language, counts (2026-11-01)
 - [x] Counts match the server for issues, pull requests, forks, stars, watchers (2026-11-01, stars and watchers update after toggling)
 - [ ] Tap each count row opens its list
-- [ ] README expand and collapse, relative links and images
+- [x] README expand and collapse, relative links and images (2026-11-01, fixed: relative images were broken and emoji shortcodes showed as text)
 - [ ] Overview row taps (owner, homepage)
 - [x] Menu: Select branch, switch to a tag and to another branch (2026-11-01, also switched to a tag and the file list followed)
 - [ ] Menu: Share

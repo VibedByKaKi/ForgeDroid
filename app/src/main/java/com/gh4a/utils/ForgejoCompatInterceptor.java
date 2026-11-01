@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.util.Log;
 
 import com.gh4a.Gh4Application;
+import com.vdurmont.emoji.EmojiParser;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -495,6 +496,39 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
     }
 
+    private static final Pattern IMG_SRC = Pattern.compile("(<img\\b[^>]*?\\bsrc=\")([^\"]+)(\")");
+    private static final Pattern SERVER_PATH = Pattern.compile(
+            "^(raw|media|attachments|avatars|repo-avatars|assets|issues|pulls|user|commit|src|releases)/.*");
+
+    /**
+     * Forgejo renders relative image paths as {@code /path} (raw markdown) or
+     * {@code https://host/owner/repo/path} (gfm), neither of which serves the file.
+     * Point them at {@code /media/<ref>/path}.
+     */
+    private static String fixRelativeImages(String html, String host, String owner, String repo,
+            String ref) {
+        final String repoBase = "https://" + host + "/" + owner + "/" + repo + "/";
+        Matcher m = IMG_SRC.matcher(html);
+        StringBuffer out = new StringBuffer();
+        while (m.find()) {
+            String src = m.group(2);
+            String path = null;
+            if (src.startsWith(repoBase)) {
+                String rest = src.substring(repoBase.length());
+                if (!SERVER_PATH.matcher(rest).matches()) {
+                    path = rest;
+                }
+            } else if (src.startsWith("/") && !src.startsWith("//")) {
+                path = src.substring(1);
+            }
+            String replacement = m.group(1)
+                    + (path != null ? repoBase + "media/" + ref + "/" + path : src) + m.group(3);
+            m.appendReplacement(out, Matcher.quoteReplacement(replacement));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
     private static final Pattern BODY_PATHS = Pattern.compile(
             "^/api/v1/repos/([^/]+)/([^/]+)/(issues|pulls|releases|commits|git/commits)(/.*)?$");
     private static final int MAX_RENDERED_BODIES = 40;
@@ -636,6 +670,12 @@ public class ForgejoCompatInterceptor implements Interceptor {
             html = "<p>" + text.replace("&", "&amp;").replace("<", "&lt;")
                     .replace(">", "&gt;").replace("\n", "<br>") + "</p>";
             return html;
+        }
+        html = EmojiParser.parseToUnicode(html);
+        int slash = context.indexOf('/');
+        if (slash > 0) {
+            html = fixRelativeImages(html, request.url().host(), context.substring(0, slash),
+                    context.substring(slash + 1), "HEAD");
         }
         RENDERED_CACHE.put(cacheKey, html);
         return html;
@@ -1188,8 +1228,10 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     .body(ResponseBody.create(MediaType.parse("text/html; charset=utf-8"), html))
                     .build();
         }
-        String html = rendered.body().string();
+        String html = EmojiParser.parseToUnicode(rendered.body().string());
         rendered.close();
+        html = fixRelativeImages(html, original.url().host(), owner, repo,
+                ref != null ? ref : "HEAD");
         return new Response.Builder()
                 .request(original)
                 .protocol(Protocol.HTTP_1_1)
