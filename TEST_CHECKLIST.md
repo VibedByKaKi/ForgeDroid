@@ -169,7 +169,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 
 ## 11. Commits (`commit_menu`, `commit_comment_actions`, `commit_history_menu`)
 - [x] Commit list on the repo Commits tab, paginate (2026-11-01, list loads; pagination not done)
-- [ ] Commit list for a file with Follow renames toggle
+- [x] Commit list for a file with Follow renames toggle (2026-11-01, toggle removed because Forgejo cannot follow renames; file history list loads)
 - [x] Commit detail: message, author, stats, files changed (2026-11-01)
 - [x] Commit menu: Open in browser, Share (2026-11-01, fixed: Share used github.com; web links now use the instance host)
 - [x] Open a changed file from a commit (2026-11-01)
@@ -240,10 +240,10 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Type selector: repositories, users, issues, pull requests, code (2026-11-01, Repository and User only; Code removed because Forgejo has no code search API)
 - [x] Submit search with keyboard and with the search icon (2026-11-01, keyboard submit only)
 - [x] Open a result of each type (2026-11-01, repository result opened; user result opened from followers)
-- [ ] Empty result message
+- [x] Empty result message (2026-11-01, "No repositories found matching the criteria.")
 - [x] Exact user and org name search (2026-11-01, exact user is in the list but ranked second behind a fuzzy match)
-- [ ] Pagination
-- [ ] Search history or suggestions if present
+- [x] Pagination (2026-11-01, search results load page 2 on scroll)
+- [x] Search history or suggestions if present (2026-11-01, no suggestions are shown; the original GitHub suggestion provider is unused)
 
 ## 17. Bookmarks and stars
 - [x] Bookmarks tab lists bookmarks added from repo and user menus (2026-11-01, repo bookmark listed)
@@ -280,8 +280,8 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Single-choice dialogs (ref picker, filter pickers) select and dismiss (2026-11-01, branch picker, filter pickers, theme dialog)
 - [x] Markdown rendering: tables, nested lists, HTML, emoji, mentions, issue links (2026-11-01, table cells render without a grid, nested lists, bold, strike, code block, emoji and links render; a bare #1 is not linked)
 - [ ] Image viewer from markdown
-- [ ] Web view find bar: find previous, find next
-- [ ] Print menu
+- [x] Web view find bar: find previous, find next (2026-11-01, match counter 1/22 and next and previous arrows work)
+- [-] Print menu (2026-11-01, opens the system print dialog; not verifiable on the emulator)
 - [ ] Pull to refresh on every paged list
 - [ ] Error view TRY AGAIN retries
 - [ ] Empty view text on every list
