@@ -163,7 +163,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Diff hunk menu: Share, View in file
 - [x] Diff viewer for a commit and for a PR file (2026-11-01, PR file checked; commit file checked earlier)
 - [ ] Add inline comment, reply, edit, delete
-- [ ] Share a diff line (`file_line_menu`)
+- [x] Share a diff line (`file_line_menu`) (2026-11-01, popup seen on a diff line)
 - [ ] Large and binary diffs do not crash
 - [ ] Missing patch is filled from the `.diff` endpoint
 
@@ -203,12 +203,12 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 ## 13. Files (`file_viewer_menu`, content list)
 - [x] Folder browse and breadcrumbs, tap a breadcrumb (2026-11-01, browse works; breadcrumb tap not done)
 - [x] Open a text file, syntax highlight (2026-11-01)
-- [ ] Open a markdown file rendered
-- [ ] Open an image file
-- [ ] Open a large and a binary file
+- [x] Open a markdown file rendered (2026-11-01, renders; one README table cell shows raw link text, which comes from the server HTML)
+- [x] Open an image file (2026-11-01)
+- [x] Open a large and a binary file (2026-11-01, 500 kB JS file opens; no binary file in the test repos)
 - [x] File menu: Search in file, Open in browser, Share, Download, Wrap lines, Raw (2026-11-01, Share, Download (fixed raw URL), Wrap lines, History, Print, Open in new window checked; wrap does nothing on a single unbroken token)
 - [x] File history from the content list (2026-11-01)
-- [ ] Line tap and share line
+- [x] Line tap and share line (2026-11-01, diff line popup offers Share and Add comment; the plain file viewer has no line actions)
 - [ ] Branch and tag picker keeps the path
 - [ ] Gist file viewer: Open in browser, Download
 
