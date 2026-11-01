@@ -1445,6 +1445,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 continue;
             }
             item.put("event", event);
+            if ("renamed".equals(event) && item.has("old_title")) {
+                item.put("rename", new JSONObject()
+                        .put("from", item.optString("old_title", ""))
+                        .put("to", item.optString("new_title", "")));
+            }
             if (!item.has("actor") || item.isNull("actor")) {
                 Object user = item.opt("user");
                 if (user instanceof JSONObject) {

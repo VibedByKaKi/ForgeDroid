@@ -48,7 +48,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Drawer swipe open and close, selected item is highlighted (2026-11-01, selected entry highlighted green)
 
 ## 3. News Feed
-- [ ] Pull to refresh
+- [x] Pull to refresh (2026-11-01, feed refresh swipe refetches the feed)
 - [x] Scroll to load the next page (2026-11-01, News Feed page 2 loads)
 - [x] Tap an avatar opens that user (2026-11-01, feed row avatar opens profile)
 - [x] Tap a repo name opens the repo (2026-11-01, repo links from rows open the repo or commit)
@@ -109,7 +109,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Header shows state, number, title, repo (2026-11-01)
 - [x] Body renders markdown, images, code blocks, task lists (2026-11-01, body_html is now synthesized; checked on KaKi87/sshception#12 and a PR)
 - [x] Labels, assignees, milestone, reactions shown (2026-11-01, reaction summary is now fetched; labels checked)
-- [ ] Timeline events: comment, label change, assign, close, reopen, rename, cross reference, commit reference
+- [x] Timeline events: comment, label change, assign, close, reopen, rename, cross reference, commit reference (2026-11-01, fixed: a rename event crashed the issue screen; comment, label, assign, close, reopen and rename render. Cross reference and commit reference events are skipped by design)
 - [x] Menu: Close (2026-11-01, dialog offers Not planned and Duplicate, which Forgejo ignores)
 - [x] Menu: Reopen (2026-11-01)
 - [x] Menu: Share (2026-11-01, share sheet carries the issue URL)
@@ -121,7 +121,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [-] Comment box: attach button (2026-11-01, the + button is the advanced editor toggle; there is no attachment upload)
 - [x] Markdown buttons: bold, italic, strikethrough, h1, h2, h3, quote, code, link, image, bullet list, number list, task list, divider (2026-11-01, only the bold button and Preview were tapped)
 - [x] Comment overflow: Share, Add reaction, Edit, Delete, View in file (2026-11-01, Edit and Delete verified, others only listed)
-- [ ] Text selection menu: Quote
+- [x] Text selection menu: Quote (2026-11-01, Copy, Quote, Share, Select all; Quote inserts "> " into the comment box)
 - [x] Reaction picker: +1, -1, laugh, hooray, confused, heart, rocket, eyes, and the Loading state (2026-11-01, all eight listed; +1 added)
 - [x] Reaction bar tap adds and removes a reaction (2026-11-01, fixed: remove sent no DELETE; ids now synthesized)
 - [x] Tap a user avatar and extra text in a comment (2026-11-01, avatar opens the profile)
