@@ -1733,7 +1733,14 @@ public class ForgejoCompatInterceptor implements Interceptor {
             } catch (JSONException ignored) {
             }
         } else if (content != null) {
-            title = content;
+            // Forgejo feeds use "number|title" for issue and pull request events.
+            int sep = content.indexOf('|');
+            if (sep > 0 && content.substring(0, sep).matches("\\d+")) {
+                number = content.substring(0, sep);
+                title = content.substring(sep + 1);
+            } else {
+                title = content;
+            }
         }
         return new String[] { number, title };
     }

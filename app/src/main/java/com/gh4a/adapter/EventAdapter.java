@@ -221,6 +221,9 @@ public class EventAdapter extends RootAdapter<GitHubEvent, EventAdapter.EventVie
                 if (payload.action() == PullRequestPayload.Action.Assigned ||
                         payload.action() == PullRequestPayload.Action.Unassigned) {
                     return formatAssignmentDesc(res, title, payload.assignees());
+                } else if (!StringUtils.isBlank(title) && pullRequest.commits() == null) {
+                    // Forgejo activity feeds carry no commit or line counts.
+                    return title;
                 } else if (!StringUtils.isBlank(title)) {
                     return res.getString(R.string.event_pull_request_desc,
                             title, pullRequest.commits(),
