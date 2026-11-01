@@ -3,6 +3,8 @@ package com.gh4a.utils;
 import android.net.Uri;
 import android.util.Log;
 
+import com.gh4a.Gh4Application;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -219,6 +221,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 }
             }
         }
+        if (MY_REPOS.matcher(originalPath).matches() && "GET".equalsIgnoreCase(original.method())) {
+            String repoType = original.url().queryParameter("type");
+            if (repoType != null && (repoType.equals("owner") || repoType.equals("member")
+                    || repoType.equals("public") || repoType.equals("private"))) {
+                return synthesizeFilteredMyRepos(chain, original, repoType);
+            }
+        }
         Request request;
         Matcher userRepos = USER_REPOS_LIST.matcher(originalPath);
         Matcher orgRepos = ORG_REPOS_LIST.matcher(originalPath);
@@ -395,6 +404,95 @@ public class ForgejoCompatInterceptor implements Interceptor {
             return value.substring(1, value.length() - 1);
         }
         return value;
+    }
+
+    /**
+     * Forgejo /user/repos ignores GitHub's type filter and filtering one page would leave
+     * sparse pages. Read every page, filter, and return the requested page of the result.
+     */
+    private static Response synthesizeFilteredMyRepos(Chain chain, Request original, String type)
+            throws IOException {
+        int page = 1;
+        int perPage = 30;
+        try {
+            String pageParam = original.url().queryParameter("page");
+            if (pageParam != null) {
+                page = Math.max(1, Integer.parseInt(pageParam));
+            }
+            String perPageParam = original.url().queryParameter("per_page");
+            if (perPageParam == null) {
+                perPageParam = original.url().queryParameter("limit");
+            }
+            if (perPageParam != null) {
+                perPage = Math.max(1, Integer.parseInt(perPageParam));
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        String me = Gh4Application.get().getAuthLogin();
+        JSONArray matches = new JSONArray();
+        try {
+            for (int serverPage = 1; serverPage <= 40; serverPage++) {
+                HttpUrl url = original.url().newBuilder()
+                        .removeAllQueryParameters("per_page")
+                        .removeAllQueryParameters("limit")
+                        .removeAllQueryParameters("type")
+                        .setQueryParameter("page", String.valueOf(serverPage))
+                        .setQueryParameter("limit", "50")
+                        .build();
+                Response response = chain.proceed(rewriteRequest(
+                        original.newBuilder().url(url).build()));
+                JSONArray chunk;
+                try {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        return response;
+                    }
+                    chunk = new JSONArray(response.body().string());
+                } finally {
+                    response.close();
+                }
+                for (int i = 0; i < chunk.length(); i++) {
+                    JSONObject repo = chunk.optJSONObject(i);
+                    if (repo != null && matchesRepoType(repo, type, me)) {
+                        matches.put(repo);
+                    }
+                }
+                if (chunk.length() < 50) {
+                    break;
+                }
+            }
+            JSONArray slice = new JSONArray();
+            for (int i = (page - 1) * perPage; i < matches.length() && i < page * perPage; i++) {
+                slice.put(matches.get(i));
+            }
+            String body = aliasStarFields(slice.toString());
+            Response.Builder builder = new Response.Builder()
+                    .request(original)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .header("X-Total-Count", String.valueOf(matches.length()))
+                    .body(ResponseBody.create(JSON, body));
+            String link = buildLinkHeader(original.url(), String.valueOf(matches.length()), body);
+            if (link != null) {
+                builder.header("Link", link);
+            }
+            return builder.build();
+        } catch (JSONException e) {
+            Log.w(TAG, "Failed to filter Forgejo repo list", e);
+            return chain.proceed(rewriteRequest(original));
+        }
+    }
+
+    private static boolean matchesRepoType(JSONObject repo, String type, String me) {
+        JSONObject owner = repo.optJSONObject("owner");
+        String ownerLogin = owner != null ? owner.optString("login", "") : "";
+        boolean mine = me != null && me.equalsIgnoreCase(ownerLogin);
+        switch (type) {
+            case "owner": return mine;
+            case "member": return !mine;
+            case "private": return repo.optBoolean("private", false);
+            default: return !repo.optBoolean("private", false);
+        }
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(

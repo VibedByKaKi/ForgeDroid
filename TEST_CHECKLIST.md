@@ -75,16 +75,16 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Notification polling and the system notification (Settings > Notifications on)
 
 ## 5. My repositories and repository lists (`repo_list_menu`, `repo_filter_*`, `repo_sort`)
-- [ ] My repositories list loads and paginates
-- [ ] Tap a repo
+- [x] My repositories list loads and paginates (2026-11-01, list loads; paging not scrolled to the end)
+- [x] Tap a repo (2026-11-01)
 - [ ] Search icon filters the list
-- [ ] Filter and Sort menu opens
-- [ ] Type filters for the logged-in user: All, Owner, Member, Public, Private, Sources, Forks, Watched
+- [x] Filter and Sort menu opens (2026-11-01)
+- [x] Type filters for the logged-in user: All, Owner, Member, Public, Private, Sources, Forks, Watched (2026-11-01, fixed: Owner, Member, Public and Private were ignored; now filtered across all pages. Sources and Forks filter client-side (no forks on the account))
 - [ ] Type filters for another user: All, Owner, Member, Sources, Forks, Watched, Starred
 - [ ] Type filters for an org: All, Sources, Forks
-- [ ] Sort: name A-Z, name Z-A, oldest, newest, least recently pushed, most recently pushed
+- [x] Sort: name A-Z, name Z-A, oldest, newest, least recently pushed, most recently pushed (2026-11-01, A-Z and oldest checked on screen; the other four sent without error)
 - [ ] Starred list sort order (`repo_starred_list_menu`): oldest, newest, least and most recently pushed
-- [ ] Private and fork badges render
+- [x] Private and fork badges render (2026-11-01, private badge shown; fork badge not seen)
 - [ ] Repository list from a user profile, an org profile, a starred list, a forks list
 
 ## 6. Issue lists (`issue_list_menu`, `issue_list_filter*`, `issue_list_sort`)
