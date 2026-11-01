@@ -99,7 +99,7 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [ ] Filter by assignee
 - [ ] Filter by participating status
 - [x] Manage labels (collaborator menu) (2026-11-01)
-- [ ] Manage milestones (collaborator menu)
+- [x] Manage milestones (collaborator menu) (2026-11-01)
 - [x] Sort: newest, oldest, most recently updated, least recently updated, most commented, least commented (2026-11-01, oldest checked, request uses sort=oldest)
 - [ ] Same checks for the pull request list
 - [x] Create issue button (2026-11-01)
@@ -134,9 +134,9 @@ Run the News Feed and profile sections as the user (KaKi87) and as at least one 
 - [x] Validation error for an empty title (2026-11-01)
 - [x] Label list, create, edit, delete label (2026-11-01, fixed: new label crashed the list (null name), edit and delete used the name instead of the id, delete failed on the empty 204 body)
 - [x] Label color picker (2026-11-01, preset red chosen; custom color button not used)
-- [ ] Milestone list: open and closed tabs
-- [ ] Create milestone with due date
-- [ ] Edit milestone, Close, Reopen, Delete (`edit_milestone_menu`)
+- [x] Milestone list: open and closed tabs (2026-11-01, open tab checked; closed tab loads)
+- [x] Create milestone with due date (2026-11-01)
+- [x] Edit milestone, Close, Reopen, Delete (`edit_milestone_menu`) (2026-11-01, fixed: Close crashed because milestones had no number; now aliased from id)
 - [ ] Milestone detail issue list
 
 ## 9. Pull request detail (`pullrequest_menu`, `pull_request_fragment_menu`)

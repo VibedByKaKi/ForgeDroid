@@ -2137,6 +2137,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 out.put("sha", id);
             }
         }
+        // Forgejo milestones have only an id; GitHub clients address them by number.
+        if (!out.has("number") && obj.has("open_issues") && obj.has("closed_issues")
+                && obj.has("title") && obj.opt("id") instanceof Number) {
+            out.put("number", obj.get("id"));
+        }
         // Prefer canonical GitHub field names when both are present.
         if (obj.has("stargazers_count") && !obj.isNull("stargazers_count")) {
             out.put("stargazers_count", obj.get("stargazers_count"));
