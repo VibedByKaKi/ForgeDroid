@@ -445,7 +445,7 @@ public class RepositoryFragment extends LoadingFragmentBase implements
 
         service.searchIssues(query, null, null, 0)
                 .map(ApiHelpers::throwOnFailure)
-                .map(SearchPage::totalCount)
+                .map(page -> ApiHelpers.nullToZero(page.totalCount()))
                 .compose(makeLoaderSingle(ID_LOADER_PULL_REQUEST_COUNT, force))
                 .subscribe(count -> {
                     int totalCount = ApiHelpers.nullToZero(count);

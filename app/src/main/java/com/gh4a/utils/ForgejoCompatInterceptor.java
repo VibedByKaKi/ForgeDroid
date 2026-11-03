@@ -309,8 +309,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
         Response response = chain.proceed(request);
         if (response.code() == 404 && "GET".equalsIgnoreCase(original.method())
                 && REPO_ISSUES_LIST.matcher(request.url().encodedPath()).matches()) {
-            // Repos with an external tracker answer 404 for issues; show an empty list.
+            // Repos with an external tracker or disabled pull requests answer 404 for issues;
+            // show an empty list, shaped like the GitHub search page when that was requested.
             response.close();
+            if (SEARCH_ISSUES.matcher(originalPath).matches()) {
+                return jsonResponse(original,
+                        "{\"total_count\":0,\"incomplete_results\":false,\"items\":[]}");
+            }
             return emptyJsonArray(original);
         }
 
