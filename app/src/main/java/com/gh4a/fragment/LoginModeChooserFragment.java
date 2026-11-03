@@ -376,11 +376,12 @@ public class LoginModeChooserFragment extends DialogFragment {
                 name = name.substring(0, eq);
             }
             name = name.toLowerCase(Locale.US);
-            if ("i_like_gitea".equals(name)
-                    || "session".equals(name)
-                    || "remember".equals(name)
-                    || "gitea_awesome".equals(name)
-                    || name.contains("remember")) {
+            // The session cookie name differs per instance (i_like_gitea, i_like_codeberg, ...),
+            // so accept any cookie that is not a known non-session one. A false positive only
+            // costs one failed token request, which is retried on the next page load.
+            if (!name.isEmpty() && !"_csrf".equals(name) && !"lang".equals(name)
+                    && !"redirect_to".equals(name) && !"theme".equals(name)
+                    && !name.startsWith("_ga") && !name.startsWith("__cf")) {
                 return true;
             }
         }
