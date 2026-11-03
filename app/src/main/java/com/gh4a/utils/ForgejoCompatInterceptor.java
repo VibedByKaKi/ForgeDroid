@@ -119,8 +119,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/merge$");
     private static final Pattern LABEL_BY_NAME =
             Pattern.compile("^/api/v1/repos/([^/]+)/([^/]+)/labels/([^/\\d][^/]*|\\d*[^/\\d][^/]*)$");
+    // Lists that answer 404 when the repo has that unit disabled or has no code.
     private static final Pattern REPO_ISSUES_LIST =
-            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/issues$");
+            Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/(issues|commits|branches|tags|releases)$");
     private static final Pattern QUERY_TOKEN =
             Pattern.compile("[^\\s\"]+:\"[^\"]*\"|\"[^\"]*\"|\\S+");
     private static final Pattern COLLABORATORS_LIST =
