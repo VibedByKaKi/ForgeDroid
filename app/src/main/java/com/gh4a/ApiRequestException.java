@@ -17,9 +17,16 @@ public class ApiRequestException extends RuntimeException {
 
     private final ClientErrorResponse mResponse;
     private final int mStatus;
+    private final String mRequest;
 
     public ApiRequestException(Response response) {
         mStatus = response.code();
+        String request = null;
+        try {
+            request = response.raw().request().method() + " " + response.raw().request().url();
+        } catch (RuntimeException ignored) {
+        }
+        mRequest = request;
 
         ClientErrorResponse error = null;
         try {
@@ -44,6 +51,11 @@ public class ApiRequestException extends RuntimeException {
 
     @Override
     public String getMessage() {
+        String base = buildMessage();
+        return mRequest != null ? base + "\n" + mRequest : base;
+    }
+
+    private String buildMessage() {
         if (mResponse == null) {
             return super.getMessage();
         }
