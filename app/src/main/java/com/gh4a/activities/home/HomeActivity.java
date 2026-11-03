@@ -527,17 +527,17 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
                 }
 
                 int id = OTHER_ACCOUNTS_GROUP_BASE_ID;
-                LongSparseArray<String> accounts = Gh4Application.get().getAccounts();
+                java.util.Map<String, Long> accounts = Gh4Application.get().getAccounts();
                 String activeKey = Gh4Application.get().getAuthAccountKey();
-                for (int i = 0; i < accounts.size(); i++) {
-                    String accountKey = accounts.valueAt(i);
+                for (java.util.Map.Entry<String, Long> entry : accounts.entrySet()) {
+                    String accountKey = entry.getKey();
                     if (TextUtils.equals(activeKey, accountKey)) {
                         continue;
                     }
 
                     MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, accountKey);
                     AvatarHandler.assignAvatar(this, item,
-                            Gh4Application.extractLoginName(accountKey), accounts.keyAt(i));
+                            Gh4Application.extractLoginName(accountKey), entry.getValue());
                 }
             }
 

@@ -218,13 +218,11 @@ public class Gh4Application extends Application implements
         return extractLoginName(getAuthAccountKey());
     }
 
-    public LongSparseArray<String> getAccounts() {
-        LongSparseArray<String> accounts = new LongSparseArray<>();
+    /** Account keys mapped to user ids. Keyed by account, since ids repeat across instances. */
+    public java.util.Map<String, Long> getAccounts() {
+        java.util.Map<String, Long> accounts = new java.util.TreeMap<>();
         for (String login : getPrefs().getStringSet(KEY_ALL_LOGINS, null)) {
-            long id = getPrefs().getLong(KEY_PREFIX_USER_ID + login, -1);
-            if (id > 0) {
-                accounts.put(id, login);
-            }
+            accounts.put(login, getPrefs().getLong(KEY_PREFIX_USER_ID + login, -1));
         }
         return accounts;
     }
