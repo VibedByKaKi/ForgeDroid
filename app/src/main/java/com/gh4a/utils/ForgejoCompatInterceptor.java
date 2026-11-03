@@ -350,6 +350,11 @@ public class ForgejoCompatInterceptor implements Interceptor {
                     && "null".equals(bodyString.trim())) {
                 bodyString = "[]";
             }
+            // Forgejo answers an empty timeline (and other empty lists) with a literal null.
+            if (response.isSuccessful() && "GET".equalsIgnoreCase(request.method())
+                    && "null".equals(bodyString.trim())) {
+                bodyString = "[]";
+            }
             if (response.isSuccessful() && "GET".equalsIgnoreCase(request.method())
                     && REACTIONS.matcher(path).matches()) {
                 bodyString = addReactionIds(bodyString);
