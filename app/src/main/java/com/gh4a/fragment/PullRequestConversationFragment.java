@@ -199,7 +199,7 @@ public class PullRequestConversationFragment extends IssueFragmentBase {
 
         Single<List<TimelineItem>> timelineItemsSingle = ApiHelpers.PageIterator
                 .toSingle(page -> timelineService.getTimeline(mRepoOwner, mRepoName, issueNumber, page))
-                .compose(RxUtils.filter(event -> INTERESTING_EVENTS.contains(event.event())))
+                .compose(RxUtils.filter(event -> event != null && INTERESTING_EVENTS.contains(event.event())))
                 .map(this::removeRedundantClosedEvent)
                 .compose(RxUtils.mapList(TimelineItem::fromIssueEvent));
 
