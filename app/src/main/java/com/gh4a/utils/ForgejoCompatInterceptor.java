@@ -216,6 +216,13 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 return orgUser;
             }
         }
+        if (SEARCH_ISSUES.matcher(originalPath).matches() && "GET".equalsIgnoreCase(original.method())) {
+            String involvesQuery = original.url().queryParameter("q");
+            if (involvesQuery != null && involvesQuery.contains("involves:")
+                    && involvesQuery.contains("repo:")) {
+                return synthesizeInvolvesSearch(chain, original, involvesQuery);
+            }
+        }
         Matcher refDelete = REF_DELETE.matcher(original.url().encodedPath());
         if (refDelete.matches() && "DELETE".equalsIgnoreCase(original.method())) {
             // GitHub deletes refs at git/refs/heads/{name}; Forgejo uses /branches/{name}.
@@ -359,6 +366,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
                         String mergedWanted = request.url().queryParameter("x_merged");
                         String arrayBody = mergedWanted == null ? bodyString
                                 : filterByMerged(bodyString, "true".equals(mergedWanted));
+                        arrayBody = filterByUnset(arrayBody, request.url().queryParameter("x_no"));
                         rewritten = wrapArrayAsSearchPage(arrayBody, totalCountHeader);
                         break;
                     case REPO_SEARCH_OBJECT:
@@ -999,6 +1007,165 @@ public class ForgejoCompatInterceptor implements Interceptor {
         }
     }
 
+    private static final Pattern INVOLVES_TOKEN = Pattern.compile("(-?)involves:\"?([^\\s\"]+)\"?");
+
+    /**
+     * Forgejo has no "involves" filter. Approximate it with the union of issues the user
+     * created, is assigned to or is mentioned in, or (for -involves) everything else.
+     */
+    private static Response synthesizeInvolvesSearch(Chain chain, Request original, String q)
+            throws IOException {
+        Matcher m = INVOLVES_TOKEN.matcher(q);
+        if (!m.find()) {
+            return chain.proceed(rewriteRequest(original));
+        }
+        boolean negate = "-".equals(m.group(1));
+        String user = m.group(2);
+        String strippedQuery = q.replace(m.group(), " ").replaceAll("\\s+", " ").trim();
+        int page = 1;
+        int perPage = 30;
+        try {
+            if (original.url().queryParameter("page") != null) {
+                page = Math.max(1, Integer.parseInt(original.url().queryParameter("page")));
+            }
+            String pp = original.url().queryParameter("per_page");
+            if (pp == null) {
+                pp = original.url().queryParameter("limit");
+            }
+            if (pp != null) {
+                perPage = Math.max(1, Integer.parseInt(pp));
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        String mergedWanted = null;
+        try {
+            Request base = original.newBuilder().url(original.url().newBuilder()
+                    .setQueryParameter("q", strippedQuery)
+                    .removeAllQueryParameters("page")
+                    .removeAllQueryParameters("per_page")
+                    .build()).build();
+            Request rewritten = rewriteRequest(base);
+            mergedWanted = rewritten.url().queryParameter("x_merged");
+            java.util.LinkedHashMap<Long, JSONObject> picked = new java.util.LinkedHashMap<>();
+            String[] filters = negate ? new String[] { null }
+                    : new String[] { "created_by", "assigned_by", "mentioned_by" };
+            java.util.Set<Long> involved = new java.util.HashSet<>();
+            if (negate) {
+                for (String f : new String[] { "created_by", "assigned_by", "mentioned_by" }) {
+                    for (JSONObject issue : fetchIssueList(chain, rewritten, f, user)) {
+                        involved.add(issue.optLong("id"));
+                    }
+                }
+            }
+            for (String f : filters) {
+                for (JSONObject issue : fetchIssueList(chain, rewritten, f, user)) {
+                    long id = issue.optLong("id");
+                    if (negate ? !involved.contains(id) : true) {
+                        picked.putIfAbsent(id, issue);
+                    }
+                }
+            }
+            List<JSONObject> all = new ArrayList<>(picked.values());
+            Collections.sort(all, (a, b) -> b.optString("updated_at").compareTo(a.optString("updated_at")));
+            JSONArray merged = new JSONArray();
+            for (JSONObject issue : all) {
+                merged.put(issue);
+            }
+            String body = mergedWanted == null ? merged.toString()
+                    : filterByMerged(merged.toString(), "true".equals(mergedWanted));
+            body = filterByUnset(body, rewritten.url().queryParameter("x_no"));
+            JSONArray filtered = new JSONArray(body);
+            JSONArray slice = new JSONArray();
+            for (int i = (page - 1) * perPage; i < filtered.length() && i < page * perPage; i++) {
+                slice.put(filtered.get(i));
+            }
+            String page_body = wrapArrayAsSearchPage(aliasStarFields(slice.toString()),
+                    String.valueOf(filtered.length()));
+            Response.Builder builder = new Response.Builder()
+                    .request(original)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(ResponseBody.create(JSON, page_body));
+            String link = buildLinkHeader(original.url(), String.valueOf(filtered.length()),
+                    slice.toString());
+            if (link != null) {
+                builder.header("Link", link);
+            }
+            return builder.build();
+        } catch (JSONException e) {
+            Log.w(TAG, "involves search failed", e);
+            return chain.proceed(rewriteRequest(original));
+        }
+    }
+
+    private static List<JSONObject> fetchIssueList(Chain chain, Request rewritten, String filter,
+            String user) throws IOException, JSONException {
+        List<JSONObject> out = new ArrayList<>();
+        for (int page = 1; page <= 4; page++) {
+            HttpUrl.Builder ub = rewritten.url().newBuilder()
+                    .removeAllQueryParameters("x_merged")
+                    .removeAllQueryParameters("x_no")
+                    .setQueryParameter("page", String.valueOf(page))
+                    .setQueryParameter("limit", "50");
+            if (filter != null) {
+                ub.setQueryParameter(filter, user);
+            }
+            Response response = chain.proceed(rewritten.newBuilder().url(ub.build()).get().build());
+            try {
+                if (!response.isSuccessful() || response.body() == null) {
+                    break;
+                }
+                JSONArray arr = new JSONArray(response.body().string());
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject o = arr.optJSONObject(i);
+                    if (o != null) {
+                        out.add(o);
+                    }
+                }
+                if (arr.length() < 50) {
+                    break;
+                }
+            } finally {
+                response.close();
+            }
+        }
+        return out;
+    }
+
+    /** Keep only issues without an assignee, label or milestone, as the "no:" filters ask. */
+    private static String filterByUnset(String body, String what) throws JSONException {
+        if (what == null) {
+            return body;
+        }
+        List<String> wanted = Arrays.asList(what.split(","));
+        JSONArray in = new JSONArray(body);
+        JSONArray out = new JSONArray();
+        for (int i = 0; i < in.length(); i++) {
+            JSONObject issue = in.optJSONObject(i);
+            if (issue == null) {
+                continue;
+            }
+            boolean keep = true;
+            if (wanted.contains("assignee")) {
+                JSONArray assignees = issue.optJSONArray("assignees");
+                keep &= issue.isNull("assignee") || !issue.has("assignee")
+                        ? (assignees == null || assignees.length() == 0) : false;
+            }
+            if (wanted.contains("label")) {
+                JSONArray labels = issue.optJSONArray("labels");
+                keep &= labels == null || labels.length() == 0;
+            }
+            if (wanted.contains("milestone")) {
+                keep &= issue.isNull("milestone") || !issue.has("milestone");
+            }
+            if (keep) {
+                out.put(issue);
+            }
+        }
+        return out.toString();
+    }
+
     private static final Pattern BODY_PATHS = Pattern.compile(
             "^/api/v1/repos/([^/]+)/([^/]+)/(issues|pulls|releases|commits|git/commits)(/.*)?$");
     private static final int MAX_RENDERED_BODIES = 40;
@@ -1520,6 +1687,23 @@ public class ForgejoCompatInterceptor implements Interceptor {
             if (event == null) {
                 continue;
             }
+            // Forgejo reuses one type for both directions; the payload says which.
+            if ("labeled".equals(event) && item.optString("body", "").isEmpty()) {
+                event = "unlabeled";
+            } else if ("assigned".equals(event) && item.optBoolean("removed_assignee", false)) {
+                event = "unassigned";
+            } else if ("milestoned".equals(event) || "demilestoned".equals(event)) {
+                JSONObject now = item.optJSONObject("milestone");
+                JSONObject before = item.optJSONObject("old_milestone");
+                if (now == null && before != null) {
+                    event = "demilestoned";
+                    item.put("milestone", before);
+                } else if (now == null) {
+                    continue;
+                } else {
+                    event = "milestoned";
+                }
+            }
             item.put("event", event);
             if ("renamed".equals(event) && item.has("old_title")) {
                 item.put("rename", new JSONObject()
@@ -1887,6 +2071,7 @@ public class ForgejoCompatInterceptor implements Interceptor {
         String mentionedUser = null;
         String milestone = null;
         String mergedFilter = null;
+        String noFilters = null;
         if (q != null) {
             Matcher tokens = QUERY_TOKEN.matcher(q.trim());
             while (tokens.find()) {
@@ -1924,7 +2109,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 } else if (token.startsWith("milestone:")) {
                     milestone = unquote(token.substring("milestone:".length()));
                 } else if (token.startsWith("no:")) {
-                    // Forgejo has no "unset" filter for assignee, label or milestone.
+                    // Forgejo has no "unset" filter, so the response is filtered afterwards.
+                    String what = token.substring(3);
+                    noFilters = noFilters == null ? what : noFilters + "," + what;
                     continue;
                 } else if (token.startsWith("repo:")) {
                     String full = token.substring("repo:".length());
@@ -1942,6 +2129,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
 
+        if (noFilters != null) {
+            urlBuilder.setQueryParameter("x_no", noFilters);
+        }
         if (mergedFilter != null) {
             // Forgejo cannot filter by merge state; the response is filtered in wrapArrayAsSearchPage.
             urlBuilder.setQueryParameter("x_merged", mergedFilter);
