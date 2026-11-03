@@ -111,6 +111,8 @@ public class ForgejoCompatInterceptor implements Interceptor {
             Pattern.compile("^/api/v1/repos/.+/reactions$");
     private static final Pattern REF_DELETE =
             Pattern.compile("^/api/v1/repos/([^/]+/[^/]+)/git/refs/(?:heads|tags)(?:/|%2F)(.+)$");
+    private static final Pattern COMMIT_STATUSES = Pattern.compile(
+            "^/api/v1/repos/[^/]+/[^/]+/(commits/.+/(statuses|status)|statuses/.+)$");
     private static final Pattern PULL_REVIEWS =
             Pattern.compile("^/api/v1/repos/[^/]+/[^/]+/pulls/\\d+/reviews(/\\d+)?$");
     private static final Pattern REVIEW_COMMENT_REACTIONS = Pattern.compile(
@@ -388,6 +390,9 @@ public class ForgejoCompatInterceptor implements Interceptor {
                 }
             }
             rewritten = aliasStarFields(rewritten);
+            if (response.isSuccessful() && COMMIT_STATUSES.matcher(path).matches()) {
+                rewritten = mapCommitStatuses(rewritten, request.url());
+            }
             if (response.isSuccessful() && PULL_REVIEWS.matcher(path).matches()) {
                 rewritten = mapReviewStates(rewritten);
             }
@@ -927,6 +932,71 @@ public class ForgejoCompatInterceptor implements Interceptor {
             }
         }
         return out.toString();
+    }
+
+    /** Forgejo statuses carry "status" (success, skipped, warning, ...); GitHub uses "state". */
+    private static String mapCommitStatuses(String body, HttpUrl url) throws JSONException {
+        String trimmed = body.trim();
+        String origin = url.scheme() + "://" + url.host();
+        if (trimmed.startsWith("[")) {
+            JSONArray arr = new JSONArray(trimmed);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject st = arr.optJSONObject(i);
+                if (st != null) {
+                    mapCommitStatus(st, origin);
+                }
+            }
+            return arr.toString();
+        }
+        if (trimmed.startsWith("{")) {
+            JSONObject combined = new JSONObject(trimmed);
+            if (combined.has("status") && !combined.has("state")) {
+                combined.put("state", githubStatusState(combined.optString("status")));
+            } else if (combined.has("state")) {
+                combined.put("state", githubStatusState(combined.optString("state")));
+            }
+            JSONArray list = combined.optJSONArray("statuses");
+            if (list != null) {
+                for (int i = 0; i < list.length(); i++) {
+                    JSONObject st = list.optJSONObject(i);
+                    if (st != null) {
+                        mapCommitStatus(st, origin);
+                    }
+                }
+            }
+            return combined.toString();
+        }
+        return body;
+    }
+
+    private static void mapCommitStatus(JSONObject st, String origin) throws JSONException {
+        String raw = st.has("status") ? st.optString("status") : st.optString("state");
+        st.put("state", githubStatusState(raw));
+        String target = st.optString("target_url", "");
+        if (target.startsWith("/")) {
+            st.put("target_url", origin + target);
+        }
+        if (!st.has("updated_at") || st.isNull("updated_at")) {
+            st.put("updated_at", st.optString("created_at", ""));
+        }
+        if (!st.has("context") || st.isNull("context")) {
+            st.put("context", "");
+        }
+    }
+
+    private static String githubStatusState(String forgejo) {
+        switch (forgejo) {
+            case "success":
+            case "skipped":
+            case "warning":
+                return "success";
+            case "failure":
+                return "failure";
+            case "error":
+                return "error";
+            default:
+                return "pending";
+        }
     }
 
     private static final Pattern BODY_PATHS = Pattern.compile(

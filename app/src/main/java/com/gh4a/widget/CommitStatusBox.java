@@ -56,6 +56,17 @@ public class CommitStatusBox extends LinearLayoutCompat implements View.OnClickL
         mHeader = findViewById(R.id.commit_status_header);
     }
 
+    private static boolean hasFailedStatus(List<StatusWrapper> statuses) {
+        if (statuses != null) {
+            for (StatusWrapper status : statuses) {
+                if (status.state() == StatusWrapper.State.Failed) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public void fillStatus(List<StatusWrapper> statuses, PullRequest.MergeableState mergableState) {
         final int statusIconDrawableResId;
         final int statusLabelResId;
@@ -77,6 +88,12 @@ public class CommitStatusBox extends LinearLayoutCompat implements View.OnClickL
                 statusLabelResId = R.string.pull_merge_status_blocked;
                 break;
             case Clean:
+                // Forgejo reports every mergeable PR as clean, so look at the statuses too.
+                if (hasFailedStatus(statuses)) {
+                    statusIconDrawableResId = R.drawable.pull_request_merge_dirty;
+                    statusLabelResId = R.string.pull_merge_status_unstable;
+                    break;
+                }
                 statusIconDrawableResId = R.drawable.pull_request_merge_ok;
                 statusLabelResId = statuses.isEmpty()
                         ? R.string.pull_merge_status_mergable
