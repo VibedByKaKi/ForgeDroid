@@ -451,8 +451,11 @@ public class LoginModeChooserFragment extends DialogFragment {
             }
             updatedCookies = mergeSetCookies(updatedCookies, response);
             csrf = extractCsrf(body, updatedCookies);
-            if (TextUtils.isEmpty(csrf)) {
-                throw new IOException("Could not find CSRF token on applications page");
+            // Newer Forgejo (Codeberg) protects forms with Origin and Sec-Fetch-Site checks
+            // instead of a token, so a missing token is fine as long as the page is a real one.
+            if (TextUtils.isEmpty(csrf) && !body.contains("name=\"scope\"")
+                    && !body.contains("/user/settings/applications")) {
+                throw new IOException("Could not find the applications form (not logged in?)");
             }
         }
 
@@ -460,8 +463,11 @@ public class LoginModeChooserFragment extends DialogFragment {
         String uniqueName = tokenName + "-" + Long.toHexString(System.currentTimeMillis());
         // Forgejo expects repeated "scope" fields (not "scope-user=...").
         // Omit admin so non-admin accounts can mint tokens.
-        RequestBody formBody = new okhttp3.FormBody.Builder()
-                .add("_csrf", csrf)
+        okhttp3.FormBody.Builder formBuilder = new okhttp3.FormBody.Builder();
+        if (!TextUtils.isEmpty(csrf)) {
+            formBuilder.add("_csrf", csrf);
+        }
+        RequestBody formBody = formBuilder
                 .add("name", uniqueName)
                 .add("scope", "") // all orgs/repos (public + private + limited)
                 .add("scope", "write:activitypub")
@@ -477,9 +483,16 @@ public class LoginModeChooserFragment extends DialogFragment {
         Request create = new Request.Builder()
                 .url(instance + "/user/settings/applications")
                 .header("Cookie", updatedCookies)
-                .header("X-Csrf-Token", csrf)
+                .header("Origin", instance)
+                .header("Referer", instance + "/user/settings/applications")
+                .header("Sec-Fetch-Site", "same-origin")
+                .header("Sec-Fetch-Mode", "navigate")
+                .header("Sec-Fetch-Dest", "document")
                 .post(formBody)
                 .build();
+        if (!TextUtils.isEmpty(csrf)) {
+            create = create.newBuilder().header("X-Csrf-Token", csrf).build();
+        }
 
         try (Response response = client.newCall(create).execute()) {
             String token = parseTokenFromFlashCookie(response);
