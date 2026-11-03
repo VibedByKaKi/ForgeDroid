@@ -434,6 +434,7 @@ public class LoginModeChooserFragment extends DialogFragment {
                 .build();
 
         String csrf;
+        String formUrl = instance + "/user/settings/applications";
         String updatedCookies = cookies;
         try (Response response = client.newCall(appsGet).execute()) {
             if (response.code() == 401 || response.code() == 403) {
@@ -450,6 +451,7 @@ public class LoginModeChooserFragment extends DialogFragment {
                 throw new IOException("Not logged in (login page returned)");
             }
             updatedCookies = mergeSetCookies(updatedCookies, response);
+            formUrl = findTokenFormUrl(body, instance, formUrl);
             csrf = extractCsrf(body, updatedCookies);
             // Newer Forgejo (Codeberg) protects forms with Origin and Sec-Fetch-Site checks
             // instead of a token, so a missing token is fine as long as the page is a real one.
@@ -481,7 +483,7 @@ public class LoginModeChooserFragment extends DialogFragment {
                 .build();
 
         Request create = new Request.Builder()
-                .url(instance + "/user/settings/applications")
+                .url(formUrl)
                 .header("Cookie", updatedCookies)
                 .header("Origin", instance)
                 .header("Referer", instance + "/user/settings/applications")
@@ -523,7 +525,7 @@ public class LoginModeChooserFragment extends DialogFragment {
                 return token;
             }
             throw new IOException("Token create failed: HTTP " + response.code()
-                    + " (no token in response)");
+                    + " at " + formUrl + " (no token in response)");
         }
     }
 
@@ -557,6 +559,37 @@ public class LoginModeChooserFragment extends DialogFragment {
             sb.append(e.getKey()).append('=').append(e.getValue());
         }
         return sb.toString();
+    }
+
+    /**
+     * The access token form posts to /user/settings/applications on older Gitea and Forgejo,
+     * but newer Forgejo (Codeberg) posts elsewhere and answers 405 on the old URL. Read the
+     * action of the form that holds the scope fields.
+     */
+    private static String findTokenFormUrl(String html, String instance, String fallback) {
+        java.util.regex.Matcher forms = java.util.regex.Pattern
+                .compile("<form\\b([^>]*)>([\\s\\S]*?)</form>", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(html != null ? html : "");
+        while (forms.find()) {
+            if (!forms.group(2).contains("name=\"scope\"")) {
+                continue;
+            }
+            java.util.regex.Matcher action = java.util.regex.Pattern
+                    .compile("action=\"([^\"]*)\"").matcher(forms.group(1));
+            if (action.find()) {
+                String url = action.group(1).replace("&amp;", "&");
+                if (url.startsWith("http")) {
+                    return url;
+                }
+                if (url.startsWith("/")) {
+                    return instance + url;
+                }
+                if (!url.isEmpty()) {
+                    return fallback + "/" + url;
+                }
+            }
+        }
+        return fallback;
     }
 
     private static String extractCsrf(String html, String cookies) {
