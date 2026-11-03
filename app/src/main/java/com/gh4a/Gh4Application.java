@@ -60,6 +60,7 @@ public class Gh4Application extends Application implements
     private static final String KEY_PREFIX_TOKEN = "token_";
     private static final String KEY_PREFIX_USER_ID = "user_id_";
     private static final String KEY_PREFIX_INSTANCE = "instance_";
+    private static final String KEY_PREFIX_AVATAR = "avatar_";
 
     /*
      * (non-Javadoc)
@@ -257,6 +258,7 @@ public class Gh4Application extends Application implements
                 .putString(KEY_PREFIX_TOKEN + accountKey, token)
                 .putLong(KEY_PREFIX_USER_ID + accountKey, user.id())
                 .putString(KEY_PREFIX_INSTANCE + accountKey, instance)
+                .putString(KEY_PREFIX_AVATAR + accountKey, user.avatarUrl())
                 .apply();
 
         updateNotificationWorker(prefs);
@@ -268,7 +270,8 @@ public class Gh4Application extends Application implements
         if (login != null) {
             long userId = getPrefs().getLong(KEY_PREFIX_USER_ID + accountKey, -1);
             if (userId >= 0) {
-                return User.builder().login(login).id(userId).build();
+                return User.builder().login(login).id(userId)
+                        .avatarUrl(getPrefs().getString(KEY_PREFIX_AVATAR + accountKey, null)).build();
             }
         }
         return null;
@@ -281,7 +284,13 @@ public class Gh4Application extends Application implements
         }
         getPrefs().edit()
                 .putLong(KEY_PREFIX_USER_ID + accountKey, user.id())
+                .putString(KEY_PREFIX_AVATAR + accountKey, user.avatarUrl())
                 .apply();
+    }
+
+    /** Avatar URL saved for an account, or null when it has not been seen yet. */
+    public String getAccountAvatarUrl(String accountKey) {
+        return getPrefs().getString(KEY_PREFIX_AVATAR + accountKey, null);
     }
 
     public void logout() {
@@ -299,6 +308,7 @@ public class Gh4Application extends Application implements
                 .remove(KEY_PREFIX_TOKEN + accountKey)
                 .remove(KEY_PREFIX_USER_ID + accountKey)
                 .remove(KEY_PREFIX_INSTANCE + accountKey)
+                .remove(KEY_PREFIX_AVATAR + accountKey)
                 .apply();
 
         NotificationsWorker.cancel(this);

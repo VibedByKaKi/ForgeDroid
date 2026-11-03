@@ -105,23 +105,32 @@ public class AvatarHandler {
     }
 
     public static void assignAvatar(Context context, MenuItem item,
-            String userName, long userId) {
-        assignAvatarInternal(new MenuItemDelegate(context, item), userName, userId, null);
+            String userName, long userId, String url) {
+        assignAvatarInternal(new MenuItemDelegate(context, item), userName, userId, url);
+    }
+
+    /** User ids repeat across instances, so cache by avatar URL whenever there is one. */
+    private static long cacheKey(long userId, String url) {
+        return url != null ? ((long) url.hashCode() & 0xffffffffL) | (1L << 40) : userId;
     }
 
     public static Bitmap loadUserAvatarSynchronously(Context context, User user) {
         if (user == null) {
             return null;
         }
-        Bitmap cachedBitmap = loadBitmapFromCache(context, user.id());
+        Bitmap cachedBitmap = loadBitmapFromCache(context, cacheKey(user.id(), user.avatarUrl()));
         if (cachedBitmap != null) {
             return cachedBitmap;
         }
         try {
-            Bitmap bitmap = fetchBitmap(makeUrl(user.avatarUrl(), user.id()));
+            String avatarUrl = makeUrl(user.avatarUrl(), user.id());
+            if (avatarUrl == null) {
+                return null;
+            }
+            Bitmap bitmap = fetchBitmap(avatarUrl);
             if (bitmap != null) {
                 synchronized (AvatarHandler.class) {
-                    sCache.put(user.id(), bitmap);
+                    sCache.put(cacheKey(user.id(), user.avatarUrl()), bitmap);
                 }
             }
             return bitmap;
@@ -143,18 +152,19 @@ public class AvatarHandler {
             String userName, long userId, String url) {
         removeOldRequest(view);
 
-        Bitmap bitmap = loadBitmapFromCache(view.getContext(), userId);
+        final long key = cacheKey(userId, url);
+        Bitmap bitmap = loadBitmapFromCache(view.getContext(), key);
         if (bitmap != null) {
             applyAvatarToView(view, bitmap);
             return;
         }
 
         view.setDrawable(new DefaultAvatarDrawable(userName, userId));
-        if (userId <= 0) {
+        if (userId <= 0 || url == null) {
             return;
         }
 
-        Request request = getRequestForId(userId);
+        Request request = getRequestForId(key);
         if (request != null) {
             request.views.add(view);
             return;
@@ -162,7 +172,7 @@ public class AvatarHandler {
 
         int requestId = sNextRequestId++;
         request = new Request();
-        request.id = userId;
+        request.id = key;
         request.url = makeUrl(url, userId);
         request.views = new ArrayList<>();
         request.views.add(view);
@@ -203,7 +213,8 @@ public class AvatarHandler {
 
     private static String makeUrl(String url, long userId) {
         if (url == null) {
-            url = "https://avatars.githubusercontent.com/u/" + userId;
+            // No avatar URL known (and GitHub ids mean nothing on Forgejo); keep the default.
+            return null;
         }
         return Uri.parse(url).buildUpon()
                 .appendQueryParameter("s", String.valueOf(sMaxImageSizePx))

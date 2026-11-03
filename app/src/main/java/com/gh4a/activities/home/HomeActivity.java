@@ -543,7 +543,8 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
 
                     MenuItem item = mLeftDrawerMenu.add(R.id.other_accounts, id++, Menu.NONE, accountKey);
                     AvatarHandler.assignAvatar(this, item,
-                            Gh4Application.extractLoginName(accountKey), entry.getValue());
+                            Gh4Application.extractLoginName(accountKey), entry.getValue(),
+                            Gh4Application.get().getAccountAvatarUrl(accountKey));
                 }
             }
 
