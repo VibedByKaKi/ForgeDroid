@@ -358,7 +358,13 @@ public class HomeActivity extends BaseFragmentPagerActivity implements
 
     @Override
     public void onLoginFailed(Throwable error) {
-        // TODO
+        android.util.Log.e("Login", "Adding account failed", error);
+        String message = error.getMessage() != null ? error.getMessage() : error.toString();
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.add_account)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     @Override
