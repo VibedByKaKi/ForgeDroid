@@ -463,34 +463,53 @@ public class LoginModeChooserFragment extends DialogFragment {
 
         // Unique name avoids "already used" collisions across re-logins.
         String uniqueName = tokenName + "-" + Long.toHexString(System.currentTimeMillis());
-        // Forgejo expects repeated "scope" fields (not "scope-user=...").
-        // Omit admin so non-admin accounts can mint tokens.
+        // Newer Forgejo (Codeberg) moved the form to /user/settings/applications/tokens/new
+        // and answers 405 on the old URL, so try the URL the page declares and then the other.
+        String newStyleUrl = instance + "/user/settings/applications/tokens/new";
+        java.util.List<String[]> attempts = new java.util.ArrayList<>();
+        attempts.add(new String[] { formUrl, "old" });
+        attempts.add(new String[] { newStyleUrl, "new" });
+        IOException last = null;
+        for (String[] attempt : attempts) {
+            try {
+                return postTokenForm(client, attempt[0], "new".equals(attempt[1]), instance, csrf,
+                        updatedCookies, uniqueName);
+            } catch (IOException e) {
+                last = e;
+            }
+        }
+        throw last;
+    }
+
+    private String postTokenForm(OkHttpClient client, String url, boolean newStyle,
+            String instance, String csrf, String updatedCookies, String uniqueName)
+            throws IOException {
         okhttp3.FormBody.Builder formBuilder = new okhttp3.FormBody.Builder();
         if (!TextUtils.isEmpty(csrf)) {
             formBuilder.add("_csrf", csrf);
         }
-        RequestBody formBody = formBuilder
-                .add("name", uniqueName)
-                .add("scope", "") // all orgs/repos (public + private + limited)
-                .add("scope", "write:activitypub")
-                .add("scope", "write:issue")
-                .add("scope", "write:misc")
-                .add("scope", "write:notification")
-                .add("scope", "write:organization")
-                .add("scope", "write:package")
-                .add("scope", "write:repository")
-                .add("scope", "write:user")
-                .build();
+        formBuilder.add("name", uniqueName);
+        if (newStyle) {
+            formBuilder.add("resource", "all");
+        } else {
+            formBuilder.add("scope", ""); // all orgs/repos (public + private + limited)
+        }
+        // Omit admin so non-admin accounts can mint tokens.
+        for (String scope : new String[] { "write:activitypub", "write:issue", "write:misc",
+                "write:notification", "write:organization", "write:package",
+                "write:repository", "write:user" }) {
+            formBuilder.add("scope", scope);
+        }
 
         Request create = new Request.Builder()
-                .url(formUrl)
+                .url(url)
                 .header("Cookie", updatedCookies)
                 .header("Origin", instance)
                 .header("Referer", instance + "/user/settings/applications")
                 .header("Sec-Fetch-Site", "same-origin")
                 .header("Sec-Fetch-Mode", "navigate")
                 .header("Sec-Fetch-Dest", "document")
-                .post(formBody)
+                .post(formBuilder.build())
                 .build();
         if (!TextUtils.isEmpty(csrf)) {
             create = create.newBuilder().header("X-Csrf-Token", csrf).build();
@@ -525,7 +544,7 @@ public class LoginModeChooserFragment extends DialogFragment {
                 return token;
             }
             throw new IOException("Token create failed: HTTP " + response.code()
-                    + " at " + formUrl + " (no token in response)");
+                    + " at " + url + " (no token in response)");
         }
     }
 
