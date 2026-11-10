@@ -16,6 +16,10 @@ The APK is a rolling GitHub prerelease on the [`latest`](https://github.com/Vibe
 - **API base** — Requests go to `{instance}/api/v1/` with `Authorization: token …` (no GitHub OAuth client).
 - **Application ID** — `com.vibedbykaki.forgedroid`
 
+## Screenshot
+
+![](../screenshot.webp)
+
 ## CI
 
 - **Build APK** — runs on push, pull request, and manual dispatch; uploads `ForgeDroid-debug-<run_number>.apk` with `archive: false`.
