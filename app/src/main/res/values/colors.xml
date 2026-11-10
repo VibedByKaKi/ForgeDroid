@@ -51,5 +51,5 @@
 
     <color name="octodroid">#97C03E</color>
     <!-- Equal to primary, but not overridden in night mode -->
-    <color name="launcher_bg">#65b345</color>
+    <color name="launcher_bg">#2b2b2b</color>
 </resources>
