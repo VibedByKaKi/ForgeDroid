@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: build-apk-${{ github.ref }}
   cancel-in-progress: true
@@ -79,6 +82,16 @@ jobs:
           path: ${{ steps.prepare.outputs.apk_filename }}
           archive: false
           retention-days: 14
+
+      - name: Publish latest pre-release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.prepare.outputs.apk_filename }}" ForgeDroid.apk
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest ForgeDroid.apk --target "$GITHUB_SHA" \
+            --prerelease --title "Latest build" --notes "Signed APK built from ${GITHUB_SHA}."
 
       - name: Remove signing material
         if: always()
