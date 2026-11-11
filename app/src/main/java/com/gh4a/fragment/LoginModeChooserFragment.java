@@ -21,6 +21,7 @@ import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ArrayAdapter;
@@ -91,6 +92,7 @@ public class LoginModeChooserFragment extends DialogFragment {
     private boolean mCheckingSession;
     private String mCurrentInstanceUrl;
     private String mLastLoadedUrl;
+    private boolean mCookiesCleared;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private final CompositeDisposable mDisposables = new CompositeDisposable();
 
@@ -146,6 +148,13 @@ public class LoginModeChooserFragment extends DialogFragment {
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
+        // The WebView is shared by the whole app, so an earlier session would sign the user in
+        // again and close this dialog. Load the instance only once the old session is gone.
+        cookieManager.removeAllCookies(removed -> {
+            WebStorage.getInstance().deleteAllData();
+            mCookiesCleared = true;
+            reloadWebViewIfReady();
+        });
 
         WebSettings settings = mWebView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -274,7 +283,7 @@ public class LoginModeChooserFragment extends DialogFragment {
     private final Runnable mReloadRunnable = this::reloadWebViewIfReady;
 
     private void reloadWebViewIfReady() {
-        if (mWebView == null || mLoginInProgress) {
+        if (mWebView == null || mLoginInProgress || !mCookiesCleared) {
             return;
         }
         String instance = resolveInstanceBaseUrl();
@@ -298,7 +307,7 @@ public class LoginModeChooserFragment extends DialogFragment {
     }
 
     private void maybeHandleSession() {
-        if (mLoginInProgress || mCheckingSession || mWebView == null) {
+        if (!mCookiesCleared || mLoginInProgress || mCheckingSession || mWebView == null) {
             return;
         }
         String instance = mCurrentInstanceUrl;
