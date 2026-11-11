@@ -724,7 +724,7 @@ public abstract class BaseActivity extends AppCompatActivity implements
     private void setupHeaderDrawable() {
         ensureContent();
 
-        int primaryColor = UiUtils.resolveColor(this, androidx.appcompat.R.attr.colorPrimary);
+        int primaryColor = UiUtils.resolveColor(this, com.gh4a.R.attr.colorBar);
         assignBackground(mLeftDrawerHeader, primaryColor);
         assignBackground(mRightDrawerHeader, primaryColor);
         assignBackground(mHeader, primaryColor);
@@ -758,7 +758,7 @@ public abstract class BaseActivity extends AppCompatActivity implements
         if (canSwipeToRefresh()) {
             mSwipeLayout.setOnRefreshListener(this);
             mSwipeLayout.setColorSchemeColors(
-                    UiUtils.resolveColor(this, androidx.appcompat.R.attr.colorPrimary), 0,
+                    UiUtils.resolveColor(this, com.gh4a.R.attr.colorBar), 0,
                     UiUtils.resolveColor(this, androidx.appcompat.R.attr.colorPrimaryDark), 0
             );
         }
@@ -890,7 +890,7 @@ public abstract class BaseActivity extends AppCompatActivity implements
             return;
         }
         mProgress = findViewById(R.id.progress);
-        mProgressColors[0] = UiUtils.resolveColor(this, androidx.appcompat.R.attr.colorPrimary);
+        mProgressColors[0] = UiUtils.resolveColor(this, com.gh4a.R.attr.colorBar);
         mProgressColors[1] = UiUtils.resolveColor(this, androidx.appcompat.R.attr.colorPrimaryDark);
         mProgress.setSmoothProgressDrawableColors(mProgressColors);
 

@@ -2,6 +2,7 @@
 <resources>
     <color name="primary">#8a3a0c</color>
     <color name="primary_dark">#6e2d09</color>
+    <color name="primary_widget">@color/accent</color>
     <color name="accent">#f28a52</color>
 
     <color name="link_text">@color/accent</color>
