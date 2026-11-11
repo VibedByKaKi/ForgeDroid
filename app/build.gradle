@@ -12,7 +12,8 @@ android {
         minSdkVersion 23
         targetSdkVersion 33
         versionCode 78
-        versionName "4.6.15"
+        // CI passes -PciBuild=<run number><run attempt>, which gives for example 4.6.15+forge.301.
+        versionName "4.6.15" + (project.hasProperty('ciBuild') ? "+forge.${project.property('ciBuild')}" : "")
         applicationId "com.vibedbykaki.forgedroid"
         resourceConfigurations += ['en']
     }

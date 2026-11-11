@@ -61,7 +61,7 @@ jobs:
           chmod 600 signing.properties
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -PciBuild="${{ github.run_number }}${{ github.run_attempt }}"
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
